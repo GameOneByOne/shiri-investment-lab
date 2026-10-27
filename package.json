@@ -1,0 +1,13 @@
+{
+  "name": "shiri-investment-lab",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "dev": "node --env-file-if-exists=.env scripts/dev.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:collector": "python -m unittest discover -s tests -p test_*.py"
+  }
+}

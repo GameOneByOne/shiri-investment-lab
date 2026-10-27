@@ -1,0 +1,5 @@
+project_id = "shiri-investment-lab"
+
+[functions.collect-market]
+# The worker checks x-job-token against a private database digest.
+verify_jwt = false
