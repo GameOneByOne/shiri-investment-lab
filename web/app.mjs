@@ -1,4 +1,8 @@
 import {simulate,sampleSeries} from './engine.mjs';
+import config from './config.mjs';
+import {createDataApi} from './data.mjs';
+
+const market=createDataApi(config);
 
 const $=s=>document.querySelector(s);
 const money=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2,minimumFractionDigits:2});
@@ -7,13 +11,6 @@ const state={selected:{symbol:'sh600519',name:'贵州茅台',kind:'股票'},conf
 const displayCode=s=>`${s.slice(2)}.${s.slice(0,2).toUpperCase()}`;
 const percent=n=>`${n>=0?'+':''}${(n*100).toFixed(2)}%`;
 const signed=n=>`${n>=0?'+':'−'}${money.format(Math.abs(n))}`;
-
-async function api(path,signal){
-  const r=await fetch(path,{signal});
-  const data=await r.json();
-  if(!r.ok)throw new Error(data.error||'请求未成功，请稍后重试。');
-  return data;
-}
 
 function updateSchedule(){
   const frequency=$('#frequency').value;
@@ -51,7 +48,7 @@ $('#stock-search').addEventListener('input',()=>{
   const version=++state.searchVersion;
   $('#stock-code').textContent='输入名称或代码后，从列表选择';
   searchTimer=setTimeout(async()=>{
-    try{const data=await api('/api/search?q='+encodeURIComponent($('#stock-search').value));if(version===state.searchVersion)renderSearch(data.results);}
+    try{const data=await market.search($('#stock-search').value);if(version===state.searchVersion)renderSearch(data.results);}
     catch{if(version===state.searchVersion)renderSearch([]);}
   },280);
 });
@@ -76,7 +73,7 @@ function showMessage(text,error=false){
   if(!error){const spin=document.createElement('span');spin.className='loader';box.append(spin);}
   const title=document.createElement('strong');title.textContent=error?'这次没能找到答案':'正在翻阅历史';box.append(title);
   const p=document.createElement('p');p.textContent=text;box.append(p);
-  if(error){const button=document.createElement('button');button.className='retry-button';button.type='button';button.textContent='重新计算';button.addEventListener('click',()=>$('#investment-form').requestSubmit());box.append(button);}
+  if(error){const button=document.createElement('button');button.className='retry-button';button.type='button';button.textContent='重新计算';button.addEventListener('click',()=>state.config?.lastCompleteDate?$('#investment-form').requestSubmit():location.reload());box.append(button);}
 }
 function getOptions(){
   if($('#stock-search').value!==state.selected.name)throw new Error('请从搜索列表选择要回测的证券。');
@@ -86,13 +83,13 @@ function getOptions(){
   if(!Number.isFinite(amount)||amount<1||amount>100000000)throw new Error('每次投入金额需在 1 元至 1 亿元之间。');
   return {start,end,amount,frequency:$('#frequency').value,weekday:Number($('#schedule-value').value),monthday:Number($('#schedule-value').value),stock:{...state.selected}};
 }
-const history=(symbol,o)=>api(`/api/history?${new URLSearchParams({symbol,start:o.start,end:o.end})}`);
+const history=(symbol,o)=>market.history(symbol,o);
 
 async function run(){
   if(state.busy)return;
   let options;
   try{options=getOptions();}catch(e){showMessage(e.message,true);return;}
-  setBusy(true);hideSearch();showMessage('首次查询按需下载历史行情并存入本地，通常需要数秒。');
+  setBusy(true);hideSearch();showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
   try{
     const compare=$('#benchmark-toggle').checked;
     const [stock,index]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null)]);
@@ -129,7 +126,9 @@ function renderResult(){
   $('#stat-assets').textContent='¥ '+compact.format(last.assets);
   $('#stat-rate').textContent=percent(last.rate);
   $('#stat-count').textContent=`${count} 次`;
-  $('#data-status').textContent=`腾讯财经 · ${state.bars.adjust==='qfq'?'前复权价格模拟':'指数点位模拟'} · ${state.bars.cached?'本地缓存':'行情已缓存'} · 截至 ${lastDate}`;
+  const collected=state.bars.fetchedAt?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(state.bars.fetchedAt)):'';
+  const stale=state.bars.fetchedAt&&Date.now()-new Date(state.bars.fetchedAt).getTime()>48*3600000;
+  $('#data-status').textContent=`腾讯财经 · ${state.bars.adjust==='qfq'?'前复权价格模拟':'指数点位模拟'} · Supabase 行情 · 截至 ${lastDate}${collected?' · 采集于 '+collected:''}${stale?' · 采集已超过 48 小时，请留意更新状态':''}`;
   $('#actual-range').textContent=`实际行情区间：${state.bars.firstDate} 至 ${state.bars.lastDate}；首笔执行日期：${firstPurchase}。${state.bars.lastDate<o.end?'结束日无更新行情，按最后一个可用交易日估值。':''}`;
   drawChart();
 }
@@ -209,7 +208,14 @@ let resizeTimer;
 window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(drawChart,100);});
 
 try{
-  state.config=await api('/api/config');
+  state.config=await market.config();
+  if(!state.config.lastCompleteDate)throw new Error('行情库尚未完成首次采集，请稍后再试。');
+  if(!state.config.popular.some(item=>item.symbol===state.selected.symbol)){
+    const item=state.config.popular.find(item=>item.kind!=='指数')||state.config.popular[0];
+    if(!item)throw new Error('股票池尚未配置。');
+    state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);$('#stock-kind').textContent=item.kind;
+  }
   $('#start-date').max=state.config.lastCompleteDate;$('#end-date').max=state.config.lastCompleteDate;$('#end-date').value=state.config.lastCompleteDate;
   await run();
-}catch(e){showMessage('本地服务尚未就绪，请确认已运行 python3 server.py。',true);}
+}catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
+
