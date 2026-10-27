@@ -1,0 +1,73 @@
+// A price-based simulation using virtual units, not executable stock orders.
+const DAY=86400000;
+const parse=s=>new Date(s+'T00:00:00Z');
+const iso=d=>d.toISOString().slice(0,10);
+
+export function scheduledDates({start,end,frequency,weekday=1,monthday=1},bars){
+  if(frequency==='daily') return bars.filter(b=>b.date>=start&&b.date<=end).map(b=>b.date);
+  const dates=[];
+  if(frequency==='weekly'){
+    const d=parse(start);
+    d.setUTCDate(d.getUTCDate()+(Number(weekday)-d.getUTCDay()+7)%7);
+    for(;iso(d)<=end;d.setUTCDate(d.getUTCDate()+7)) dates.push(iso(d));
+  }else if(frequency==='monthly'){
+    const d=parse(start);d.setUTCDate(1);
+    for(;iso(d)<=end;d.setUTCMonth(d.getUTCMonth()+1)){
+      const last=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0)).getUTCDate();
+      const s=iso(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),Math.min(Number(monthday),last))));
+      if(s>=start&&s<=end) dates.push(s);
+    }
+  }else throw new Error('请选择有效的定投周期。');
+  // Different scheduled orders may execute on the same following trading day.
+  return dates;
+}
+
+export function simulate(options,bars,benchmarkBars=[]){
+  const {start,end,amount}=options;
+  if(!start||!end||start>end||!Number.isFinite(amount)||amount<=0) throw new Error('请检查日期和投入金额。');
+  const usable=bars.filter(b=>b.date>=start&&b.date<=end);
+  if(!usable.length) throw new Error('所选日期内没有可用行情。');
+  // Avoid silently postponing years of pre-listing contributions to IPO day.
+  if((parse(usable[0].date)-parse(start))/DAY>20) throw new Error(`该标的最早可用行情为 ${usable[0].date}，请将开始日期调整至上市之后。`);
+  const dates=scheduledDates(options,usable);
+  const purchases=new Map();
+  let cursor=0;
+  for(const planned of dates){
+    while(cursor<usable.length&&usable[cursor].date<planned)cursor++;
+    if(cursor<usable.length){
+      const execution=usable[cursor].date;
+      purchases.set(execution,(purchases.get(execution)||0)+1);
+    }
+  }
+  let units=0,indexUnits=0,total=0,count=0,indexCursor=-1;
+  const series=[];
+  for(const bar of usable){
+    if(!(bar.close>0&&Number.isFinite(bar.close)))throw new Error('行情包含无效收盘价。');
+    while(indexCursor+1<benchmarkBars.length&&benchmarkBars[indexCursor+1].date<=bar.date)indexCursor++;
+    const indexBar=benchmarkBars[indexCursor];
+    const n=purchases.get(bar.date)||0;
+    if(n){
+      units+=amount*n/bar.close;
+      total+=amount*n;count+=n;
+      if(benchmarkBars.length){
+        if(!indexBar||indexBar.date!==bar.date)throw new Error(`上证指数缺少 ${bar.date} 的对比数据。`);
+        indexUnits+=amount*n/indexBar.close;
+      }
+    }
+    if(!count)continue;
+    const assets=units*bar.close;
+    const indexAssets=indexBar?indexUnits*indexBar.close:null;
+    series.push({date:bar.date,contributed:total,assets,profit:assets-total,rate:(assets-total)/total,
+      benchmarkAssets:indexAssets,benchmarkProfit:indexAssets===null?null:indexAssets-total,
+      benchmarkRate:indexAssets===null?null:(indexAssets-total)/total,purchases:n});
+  }
+  if(!count)throw new Error('区间内没有可执行的定投日期，请扩大日期范围或调整周期。');
+  return {series,last:series.at(-1),count,firstPurchase:series[0].date,lastDate:series.at(-1).date};
+}
+
+export function sampleSeries(series,granularity){
+  if(granularity==='day')return series;
+  const groups=new Map();
+  for(const row of series)groups.set(row.date.slice(0,granularity==='month'?7:4),row);
+  return [...groups.values()];
+}
