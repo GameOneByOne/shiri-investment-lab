@@ -44,13 +44,16 @@ def load_pool(path=POOL):
     return pool
 
 
-def normalize(payload, symbol, year, end):
+def normalize(payload, symbol, year, end, adjust=None):
     if payload.get('code', 0) != 0:
         raise ValueError('行情源返回错误。')
     obj = payload.get('data', {}).get(symbol)
     if not isinstance(obj, dict):
         raise ValueError('行情源缺少证券数据。')
-    key = 'day' if symbol == 'sh000001' else 'qfqday'
+    mode = adjust or ('none' if symbol == 'sh000001' else 'qfq')
+    if mode not in ('none', 'qfq', 'hfq'):
+        raise ValueError('无效复权口径。')
+    key = 'day' if mode == 'none' else mode + 'day'
     # Never silently label unadjusted equity data as qfq.
     values = obj.get(key)
     if not isinstance(values, list):
@@ -67,7 +70,17 @@ def normalize(payload, symbol, year, end):
             raise ValueError('行情价格校验失败。')
         if not low <= min(o, c) <= max(o, c) <= h:
             raise ValueError('行情高低价校验失败。')
-        rows.append(dict(date=row[0], open=o, close=c, high=h, low=low))
+        def optional(index, scale=1):
+            value = row[index] if index < len(row) else None
+            if value in (None, '', '--'):
+                return None
+            value = float(value)
+            if not math.isfinite(value) or value < 0:
+                raise ValueError('交易量价字段无效。')
+            return value * scale
+        rows.append(dict(date=row[0], open=o, close=c, high=h, low=low,
+                         volumeRaw=optional(5), volumeUnit='tencent_native',
+                         turnoverRate=optional(7, .01), amountCny=optional(8, 10000)))
     rows.sort(key=lambda x: x['date'])
     if len({r['date'] for r in rows}) != len(rows):
         raise ValueError('行情日期重复。')
@@ -177,3 +190,5 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+

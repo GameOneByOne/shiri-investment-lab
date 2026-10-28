@@ -34,7 +34,7 @@ test('worker stages a validated year',async()=>{
   });
   const result=await worker(new Request('https://worker',{method:'POST',headers:{'x-job-token':'valid'}}));
   assert.deepEqual(await result.json(),{completed:1,failed:0});
-  assert.deepEqual(calls.find(c=>c.name==='market_complete_task').body,{p_id:'task',p_attempt:1,p_bars:[{date:'2024-01-02',open:10,close:11,high:12,low:9}]});
+  assert.deepEqual(calls.find(c=>c.name==='market_complete_task').body,{p_id:'task',p_attempt:1,p_bars:[{date:'2024-01-02',open:10,close:11,high:12,low:9,volumeRaw:null,volumeUnit:'tencent_native',amountCny:null,turnoverRate:null}]});
 });
 test('failed upstream is retried through the task queue without publishing',async()=>{
   let claimed=0;const names=[];
@@ -50,3 +50,5 @@ test('failed upstream is retried through the task queue without publishing',asyn
   assert.ok(names.includes('market_fail_task'));
   assert.ok(!names.includes('market_complete_task'));
 });
+
+

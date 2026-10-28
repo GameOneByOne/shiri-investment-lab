@@ -92,9 +92,9 @@ async function run(){
   setBusy(true);hideSearch();showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
   try{
     const compare=$('#benchmark-toggle').checked;
-    const [stock,index]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null)]);
+    const [stock,index,coverage]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null),market.dataStatus(options.stock.symbol).catch(()=>null)]);
     const result=simulate(options,stock.bars,index?.bars||[]);
-    state.options=options;state.bars=stock;state.benchmark=index;state.result=result;
+    state.options=options;state.bars=stock;state.benchmark=index;state.result=result;state.coverage=coverage;
     $('#chart-state').hidden=true;renderResult();
   }catch(e){showMessage(e.message,true);}
   finally{setBusy(false);}
@@ -130,6 +130,14 @@ function renderResult(){
   const stale=state.bars.fetchedAt&&Date.now()-new Date(state.bars.fetchedAt).getTime()>48*3600000;
   $('#data-status').textContent=`腾讯财经 · ${state.bars.adjust==='qfq'?'前复权价格模拟':'指数点位模拟'} · Supabase 行情 · 截至 ${lastDate}${collected?' · 采集于 '+collected:''}${stale?' · 采集已超过 48 小时，请留意更新状态':''}`;
   $('#actual-range').textContent=`实际行情区间：${state.bars.firstDate} 至 ${state.bars.lastDate}；首笔执行日期：${firstPurchase}。${state.bars.lastDate<o.end?'结束日无更新行情，按最后一个可用交易日估值。':''}`;
+  const coverage=state.coverage;
+  const extra=$('#data-dimensions');
+  extra.hidden=!coverage;
+  if(coverage){
+    const modes=coverage.prices.map(p=>({none:'不复权',qfq:'前复权',hfq:'后复权'}[p.adjust])).join('、');
+    const dividends=coverage.dividends;
+    extra.textContent=`已采集价格口径：${modes||'等待采集'}。${dividends.status==='collected'?`另存有 ${dividends.count} 条分红方案记录（含预案与实施状态）。`:dividends.status==='not_applicable'?'指数不适用分红明细。':'分红明细尚未采集完成。'}当前曲线仍使用上述默认价格口径，不额外计入分红现金流。`;
+  }
   drawChart();
 }
 
@@ -218,4 +226,6 @@ try{
   $('#start-date').max=state.config.lastCompleteDate;$('#end-date').max=state.config.lastCompleteDate;$('#end-date').value=state.config.lastCompleteDate;
   await run();
 }catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
+
+
 

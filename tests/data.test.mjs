@@ -19,3 +19,18 @@ test('database errors are surfaced and missing config never calls fetch',async()
   await assert.rejects(createDataApi({},async()=>{called=true;}).config(),/尚未配置/);
   assert.equal(called,false);
 });
+test('extended data APIs transmit only the price basis, symbol and range',async()=>{
+  const calls=[];
+  const api=createDataApi({url:'https://test.supabase.co',key:'sb_publishable_test'},async(url,options)=>{
+    calls.push({name:url.split('/').at(-1),params:JSON.parse(options.body)});return {ok:true,json:async()=>({})};
+  });
+  const options={start:'2020-01-01',end:'2024-01-01',amount:1000,frequency:'weekly'};
+  await api.prices('sh600519',options,'hfq');await api.dividends('sh600519',options);await api.dataStatus('sh600519');
+  assert.deepEqual(calls,[
+    {name:'market_prices',params:{p_symbol:'sh600519',p_start:options.start,p_end:options.end,p_adjust:'hfq'}},
+    {name:'market_dividends',params:{p_symbol:'sh600519',p_start:options.start,p_end:options.end}},
+    {name:'market_data_status',params:{p_symbol:'sh600519'}}
+  ]);
+});
+
+

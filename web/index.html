@@ -48,7 +48,7 @@
       <div class="benchmark-row"><div><span class="compare-icon">⇄</span><label for="benchmark-toggle">和上证指数比一比</label><span class="info-dot" title="相同投入日期、相同投入金额，按指数点位计算虚拟份额。指数仅作参照，不能直接买入。">i</span></div><input type="checkbox" id="benchmark-toggle" class="switch" role="switch" aria-label="开启上证指数对比"><span class="benchmark-description">相同时间，相同投入</span></div>
       <div class="stats-grid"><div><span>累计投入</span><strong id="stat-invested">—</strong></div><div><span>期末总资产</span><strong id="stat-assets">—</strong></div><div><span>累计收益率</span><strong id="stat-rate">—</strong></div><div><span>定投次数</span><strong id="stat-count">—</strong></div></div>
       <div class="result-context"><span class="status-dot"></span><span id="data-status">真实历史行情 · 正在加载</span></div>
-      <details class="method-details"><summary>这条曲线是怎么算的？ <span>＋</span></summary><p>按指定日期投入，非交易日顺延至下一个有行情的交易日；每月不足指定日号时取当月最后一天，顺延超出结束日期的投入不执行。每日定投仅在交易日执行。曲线按日、月或年显示期末值，切换粒度不改变计算结果。</p><p>股票与 ETF 使用前复权收盘价计算虚拟份额，以模拟价格变化；虚拟份额不是实际股数。暂未模拟税费、整手限制及真实分红现金流，因此不代表实际交易收益。上证指数以相同日期、相同金额计算虚拟份额，仅作参考，不能直接买入。累计收益率＝模拟收益 ÷ 累计投入，并非年化收益率。</p><p id="actual-range"></p></details>
+      <details class="method-details"><summary>这条曲线是怎么算的？ <span>＋</span></summary><p>按指定日期投入，非交易日顺延至下一个有行情的交易日；每月不足指定日号时取当月最后一天，顺延超出结束日期的投入不执行。每日定投仅在交易日执行。曲线按日、月或年显示期末值，切换粒度不改变计算结果。</p><p>股票与 ETF 使用前复权收盘价计算虚拟份额，以模拟价格变化；虚拟份额不是实际股数。暂未模拟税费、整手限制及真实分红现金流，因此不代表实际交易收益。上证指数以相同日期、相同金额计算虚拟份额，仅作参考，不能直接买入。累计收益率＝模拟收益 ÷ 累计投入，并非年化收益率。</p><p id="actual-range"></p><p id="data-dimensions" hidden></p></details>
     </section>
   </main>
   <footer class="page-footer"><span>拾日 · 历史定投实验室</span><span>历史无法重来，但可以成为理解未来的起点。<span class="footer-divider">/</span>历史表现不预示未来收益。</span></footer>
@@ -60,4 +60,6 @@
   <script defer src="/_vercel/insights/script.js"></script>
 </body>
 </html>
+
+
 
