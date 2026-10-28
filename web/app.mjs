@@ -128,8 +128,6 @@ function renderResult(){
   const {last,count,firstPurchase,lastDate}=state.result;
   const o=state.options;
   const hero=$('#hero-value');hero.replaceChildren(document.createTextNode(signed(last.profit)));const unit=document.createElement('span');unit.textContent='元';hero.append(unit);hero.classList.toggle('negative',last.profit<0);
-  const frequency=o.frequency==='daily'?'每个交易日':o.frequency==='weekly'?`每周${['','一','二','三','四','五'][o.weekday]}`:`每月 ${o.monthday} 号`;
-  $('#hero-description').textContent=`${frequency}投入 ${compact.format(o.amount)} 元，累计 ${count} 次，模拟收益率 ${percent(last.rate)}`;
   $('#period-years').textContent=`${firstPurchase.slice(0,4)} — ${lastDate.slice(0,4)}`;
   $('#legend-stock').textContent=o.stock.name;
   $('#benchmark-legend').hidden=!$('#benchmark-toggle').checked;
