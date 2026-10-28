@@ -19,6 +19,15 @@ test('database errors are surfaced and missing config never calls fetch',async()
   await assert.rejects(createDataApi({},async()=>{called=true;}).config(),/尚未配置/);
   assert.equal(called,false);
 });
+test('available picker sends search and cursor separately from the popular pool',async()=>{
+  let request;
+  const api=createDataApi({url:'https://test.supabase.co',key:'sb_publishable_test'},async(url,options)=>{
+    request={url,body:JSON.parse(options.body)};return {ok:true,json:async()=>({results:[],total:60,nextCursor:null})};
+  });
+  await api.available('', 'bj920900');
+  assert.ok(request.url.endsWith('/market_available'));
+  assert.deepEqual(request.body,{p_query:'',p_after:'bj920900'});
+});
 test('extended data APIs transmit only the price basis, symbol and range',async()=>{
   const calls=[];
   const api=createDataApi({url:'https://test.supabase.co',key:'sb_publishable_test'},async(url,options)=>{
@@ -32,5 +41,4 @@ test('extended data APIs transmit only the price basis, symbol and range',async(
     {name:'market_data_status',params:{p_symbol:'sh600519'}}
   ]);
 });
-
 

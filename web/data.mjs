@@ -21,11 +21,11 @@ export function createDataApi(config,fetcher=globalThis.fetch){
   return {
     config:()=>rpc('market_config'),
     search:(query,signal)=>rpc('market_search',{p_query:query},signal),
+    available:(query='',after=null,signal)=>rpc('market_available',{p_query:query,p_after:after},signal),
     history:(symbol,options)=>rpc('market_history',{p_symbol:symbol,p_start:options.start,p_end:options.end}),
     prices:(symbol,options,adjust='qfq')=>rpc('market_prices',{p_symbol:symbol,p_start:options.start,p_end:options.end,p_adjust:adjust}),
     dividends:(symbol,options)=>rpc('market_dividends',{p_symbol:symbol,p_start:options.start,p_end:options.end}),
     dataStatus:symbol=>rpc('market_data_status',{p_symbol:symbol})
   };
 }
-
 
