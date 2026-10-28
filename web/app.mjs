@@ -1,6 +1,6 @@
 import {simulate,sampleSeries} from './engine.mjs';
 import config from './config.mjs';
-import {createDataApi} from './data.mjs';
+import {createDataApi} from './data.mjs?v=available-picker';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs';
 
 const market=createDataApi(config);
@@ -37,9 +37,11 @@ function updateSchedule(){
 }
 $('#frequency').addEventListener('change',updateSchedule);updateSchedule();
 
-function hideSearch(){ $('#stock-results').hidden=true;$('#stock-search').setAttribute('aria-expanded','false'); }
+function hideSearch(){ clearTimeout(searchTimer);state.searchVersion++;$('#stock-results').hidden=true;$('#stock-search').setAttribute('aria-expanded','false'); }
+let searchPage={query:'',results:[],nextCursor:null,total:0};
 function renderSearch(results){
   const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
+  const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库可用 ${searchPage.total} 个标的 · 当前显示 ${results.length} 个`;box.append(summary);
   if(!results.length){const p=document.createElement('div');p.className='search-empty';p.textContent='未找到标的，请尝试名称、拼音或代码。';box.append(p);return;}
   for(const item of results){
     const button=document.createElement('button');button.type='button';button.role='option';
@@ -52,17 +54,32 @@ function renderSearch(results){
       $('#stock-kind').textContent=item.kind==='ETF'?' ETF':item.kind==='指数'?'指数':'股票';hideSearch();
     });box.append(button);
   }
+  if(searchPage.nextCursor){
+    const more=document.createElement('button');more.type='button';more.className='search-more';more.textContent='加载更多已采集标的';
+    more.addEventListener('click',()=>{more.disabled=true;loadSearch(searchPage.query,true);});box.append(more);
+  }
 }
 let searchTimer;
-$('#stock-search').addEventListener('focus',()=>{if(state.config)renderSearch(state.config.popular);});
+async function loadSearch(query,append=false){
+  const version=++state.searchVersion;
+  try{
+    const page=await market.available(query,append?searchPage.nextCursor:null);
+    if(version!==state.searchVersion)return;
+    searchPage={query,results:append?[...searchPage.results,...page.results]:page.results,nextCursor:page.nextCursor,total:page.total};
+    renderSearch(searchPage.results);
+  }catch(error){
+    if(version!==state.searchVersion)return;
+    const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
+    const p=document.createElement('div');p.className='search-empty';p.textContent='标的列表读取失败，请重试。';
+    const retry=document.createElement('button');retry.type='button';retry.textContent='重新加载';retry.addEventListener('click',()=>loadSearch(query));box.append(p,retry);
+  }
+}
+$('#stock-search').addEventListener('focus',()=>{if(state.config)loadSearch('');});
 $('#stock-search').addEventListener('input',()=>{
   clearTimeout(searchTimer);
-  const version=++state.searchVersion;
+  state.searchVersion++;
   $('#stock-code').textContent='输入名称或代码后，从列表选择';
-  searchTimer=setTimeout(async()=>{
-    try{const data=await market.search($('#stock-search').value);if(version===state.searchVersion)renderSearch(data.results);}
-    catch{if(version===state.searchVersion)renderSearch([]);}
-  },280);
+  searchTimer=setTimeout(()=>loadSearch($('#stock-search').value),280);
 });
 $('#stock-search').addEventListener('keydown',e=>{
   if(e.key==='Escape')hideSearch();
