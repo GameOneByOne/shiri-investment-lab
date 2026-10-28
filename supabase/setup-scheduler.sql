@@ -18,6 +18,10 @@ select cron.schedule('shiri-collection-worker','* * * * *',$$
     url:=(select decrypted_secret from vault.decrypted_secrets where name='shiri_project_url')||'/functions/v1/collect-market',
     headers:=jsonb_build_object('Content-Type','application/json','x-job-token',
       (select decrypted_secret from vault.decrypted_secrets where name='shiri_job_token')),
-    body:='{}'::jsonb,timeout_milliseconds:=90000
-  ) where exists(select 1 from market.collection_tasks where status in ('pending','running'));
+    body:='{}'::jsonb,timeout_milliseconds:=120000
+  ) where exists(select 1 from market.collection_tasks t left join market.bulk_members m on m.run_id=t.run_id
+      where t.status in ('pending','running') and (m.symbol is null or exists(select 1 from market.bulk_control where state in ('running','cataloguing'))))
+    or exists(select 1 from market.bulk_control where not catalog_complete and state not in ('paused_manual','paused_capacity') and catalog_next_at<=now());
 $$);
+select cron.schedule('shiri-bulk-coordinator','* * * * *',$$select public.market_bulk_pump();$$);
+

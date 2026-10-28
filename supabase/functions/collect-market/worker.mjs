@@ -1,4 +1,5 @@
 import {fetchDividends} from './dividends.mjs';
+import {fetchCatalogue} from './catalog.mjs';
 
 const source='https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get';
 
@@ -44,9 +45,23 @@ export function createWorker(config,fetcher=globalThis.fetch){
     if(!token||token.length>200)return new Response('Unauthorized',{status:401});
     try{
       if(!await rpc('market_authorize_job',{p_token:token}))return new Response('Unauthorized',{status:401});
+      if(config.catalog){
+        const catalogue=await rpc('market_bulk_catalog_claim');
+        if(catalogue){
+          try{
+            const {total,stocks}=await fetchCatalogue(catalogue,fetcher);
+            await rpc('market_bulk_catalog_complete',{p_page:catalogue.page,p_total:total,p_stocks:stocks});
+            return Response.json({cataloguePage:catalogue.page,stocks:stocks.length});
+          }catch(error){
+            await rpc('market_bulk_catalog_fail',{p_page:catalogue.page,p_error:String(error.message).slice(0,300),p_restricted:/HTTP (403|429)/.test(error.message)});
+            return Response.json({cataloguePage:catalogue.page,error:'Catalogue paused; checkpoint retained'});
+          }
+        }
+      }
       let completed=0,failed=0;
+      const deadline=Date.now()+80000;
       // Bounded work stays within Edge execution limits. Cron resumes leases.
-      for(let i=0;i<3;i++){
+      for(let i=0;i<(config.maxTasks??3)&&Date.now()<deadline;i++){
         const task=await rpc('market_claim_task');
         if(!task)break;
         try{
@@ -66,11 +81,12 @@ export function createWorker(config,fetcher=globalThis.fetch){
         }catch(error){
           await rpc('market_fail_task',{p_id:task.id,p_attempt:task.attempts,p_error:String(error.message).slice(0,300)});
           failed++;
+          break; // A failing provider is never retried inside the same invocation.
         }
+        if(config.paced)await new Promise(resolve=>setTimeout(resolve,8000+Math.random()*2000));
       }
       return Response.json({completed,failed});
     }catch(error){console.error(error.message);return Response.json({error:'Collection worker failed'},{status:502});}
   };
 }
-
 
