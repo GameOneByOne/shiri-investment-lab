@@ -108,9 +108,40 @@ from market.collection_tasks where status <> 'completed';
 select jobname, schedule, active from cron.job;
 ```
 
+## 行情维度与分红明细
+
+每天 21:00 的同一个采集任务现在维护三种独立价格口径：`none` 不复权、`qfq` 前复权、`hfq` 后复权；上证指数只采原始点位。每个口径独立暂存、校验、原子发布；失败不会阻止其他已完整口径发布，也不会覆盖上一份有效数据。
+
+新增数据表为 `market.price_daily`、`market.price_series`、`market.dividend_events` 和 `market.dividend_series`。原来的 `daily_bars` 保留为默认回测口径兼容数据。旧的 `market_history` 仍返回股票/ETF 前复权价格及指数原始点位，现有收益算法没有切换。
+
+新增只读 RPC：
+
+| RPC | 参数 | 用途 |
+| --- | --- | --- |
+| `market_prices` | p_symbol, p_start, p_end, p_adjust | 读取指定价格口径；指数需指定 none |
+| `market_dividends` | p_symbol, p_start, p_end | 分红、送股、转增方案及实施状态 |
+| `market_data_status` | p_symbol | 各口径覆盖区间、记录数、来源、采集时间 |
+
+价格日线新增 `volumeRaw`（腾讯原始成交量，单位保留为 `tencent_native`，不猜测股/手）、`amountCny`（成交额，元）、`turnoverRate`（换手率的小数形式，例如 0.002 表示 0.2%）。源字段缺失时返回 null。前后复权价格来自源站对应日线，不用比例自行拼接，也不在缺少复权数据时偷偷降级为不复权价格。
+
+股票分红源为东方财富 `RPT_SHAREBONUS_DET`；ETF 分红源为天天基金的分红送配页面。保留完整来源记录供审计，并保存：
+
+- 每 10 股/份派现金额 `cashPer10`，每股/份金额 `cashPerUnit = cashPer10 / 10`。
+- 每 10 股送股和转增数量；报告期、预案公告日、最新公告日、登记日、除息日、发放日。
+- 方案状态 `proposed` / `scheduled` / `implemented` / `cancelled` / `no_distribution` / `unknown`。
+- 来源 URL、采集时间、币种和税前/源站未注明税务口径。
+
+股票源当前没有提供现金发放日，因此保存 null，不用除息日代替；ETF 可获得发放日。`implemented` 表示已实施的分配方案，不代表已核实券商现金到账。未公告的金额保持 null；不把预案当作到账现金。指数的分红状态为 `not_applicable`，未采集为 `not_collected`，成功采集但无事件为 `collected` 且数量 0。
+
+所有新增表均启用 RLS，浏览器只有启用标的的读取权限；发布函数只允许 service_role。分红与价格属于独立数据集，分红失败不更新其成功采集时间。
+
+当前尚未采集权威复权因子和配股缴款事件。**分红数据已独立存储，但现有收益曲线尚未把现金分红、红股到账或分红再投资作为独立现金流加入计算**，避免与前复权价格重复计算。网页的计算说明中会显示该标的实际已采集的数据维度。
+
 ## 计算口径
 
 以前复权收盘价计算虚拟份额：投入 / 当日价格；每日资产 = 虚拟份额 × 当日价格。上证指数使用原始点位，复用标的实际投入日期和金额。累计收益率 =（资产 − 累计投入）/ 累计投入，不是年化收益率。
 
 周/月计划遇休市或缺行情顺延，当月无指定日号则取月末，超出结束日期不执行。首条行情距开始日期超过 20 天时要求调整区间。暂不模拟税费、整手限制和真实分红现金流，也未独立校验全历史交易日历；这是价格历史模拟，历史表现不预示未来收益。
+
+
 
