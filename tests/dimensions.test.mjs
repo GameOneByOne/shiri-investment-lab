@@ -42,6 +42,15 @@ test('dividend pagination rejects partial or unsuccessful datasets',async()=>{
   await assert.rejects(fetchDividends(task,async()=>Response.json({success:true,result:{pages:1,count:2,data:[stock]}})),/Incomplete/);
   await assert.rejects(fetchDividends(task,async()=>Response.json({success:false,result:null})),/verified/);
 });
+test('ETF source empty placeholders are retried and never published as confirmed zero',async()=>{
+  const fundTask={...task,symbol:'sh510300',security:{...task.security,kind:'ETF'}};
+  const empty=`<title>沪深300ETF(510300)</title><table><tr><th>每10份分红</th><th>分红发放日</th></tr><tr><td>暂无分红信息!</td></tr></table>`;
+  let calls=0;
+  const events=await fetchDividends(fundTask,async()=>new Response(calls++===0?empty:'<title>沪深300ETF(510300)</title>'+fundHtml));
+  assert.equal(events.length,1);assert.equal(calls,2);
+  await assert.rejects(fetchDividends(fundTask,async()=>new Response(empty)),/verification required/);
+  await assert.rejects(fetchDividends(fundTask,async()=>new Response('<title>Unknown fund</title>'+fundHtml)),/identity mismatch/);
+});
 test('worker dispatches dividend tasks through their adapter rather than price parser',async()=>{
   let claimed=0;const calls=[];
   const worker=createWorker({url:'https://db',key:'private'},async(url,options)=>{

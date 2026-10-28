@@ -67,11 +67,22 @@ export function parseFundDividends(html,task){
 export async function fetchDividends(task,fetcher=globalThis.fetch){
   const code=task.symbol.slice(2);
   const get=async url=>{
-    const response=await fetcher(url,{headers:{'User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(18000)});
+    const response=await fetcher(url,{headers:{'User-Agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/114.0.0.0 Safari/537.36','Cache-Control':'no-cache'},signal:AbortSignal.timeout(18000)});
     if(!response.ok)throw new Error(`Dividend source HTTP ${response.status}`);
     return response;
   };
-  if(task.security.kind==='ETF')return parseFundDividends(await (await get(`https://fundf10.eastmoney.com/fhsp_${code}.html`)).text(),task);
+  if(task.security.kind==='ETF'){
+    for(let attempt=0;attempt<2;attempt++){
+      const html=await (await get(`https://fundf10.eastmoney.com/fhsp_${code}.html`)).text();
+      const title=html.match(/<title>([\s\S]*?)<\/title>/i)?.[1]||'';
+      if(!title.includes(code))throw new Error('Fund dividend page identity mismatch');
+      const events=parseFundDividends(html,task);
+      if(events.length)return events;
+    }
+    // The source sometimes returns a valid-looking empty page for a fund that
+    // has a dividend history. Do not turn that response into a confirmed zero.
+    throw new Error('Fund source reports no records; verification required before publishing an empty snapshot');
+  }
   if(task.security.kind!=='股票')throw new Error('Dividend adapter not applicable');
   const rows=[];let pages=1,expected=null;
   for(let page=1;page<=pages;page++){
