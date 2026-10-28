@@ -1,6 +1,7 @@
 import {simulate,sampleSeries} from './engine.mjs';
 import config from './config.mjs';
 import {createDataApi} from './data.mjs';
+import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs';
 
 const market=createDataApi(config);
 
@@ -11,6 +12,17 @@ const state={selected:{symbol:'sh600519',name:'贵州茅台',kind:'股票'},conf
 const displayCode=s=>`${s.slice(2)}.${s.slice(0,2).toUpperCase()}`;
 const percent=n=>`${n>=0?'+':''}${(n*100).toFixed(2)}%`;
 const signed=n=>`${n>=0?'+':'−'}${money.format(Math.abs(n))}`;
+
+function refreshDateBounds(){
+  const today=currentMarketDate();
+  for(const id of ['start-date','end-date']){const input=$('#'+id);input.min=firstHistoryDate;input.max=today;}
+}
+refreshDateBounds();
+$('#end-date').value=currentMarketDate();
+for(const id of ['start-date','end-date'])$('#'+id).addEventListener('focus',refreshDateBounds);
+window.addEventListener('focus',refreshDateBounds);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDateBounds();});
+setInterval(refreshDateBounds,60000);
 
 function updateSchedule(){
   const frequency=$('#frequency').value;
@@ -78,8 +90,7 @@ function showMessage(text,error=false){
 function getOptions(){
   if($('#stock-search').value!==state.selected.name)throw new Error('请从搜索列表选择要回测的证券。');
   const start=$('#start-date').value,end=$('#end-date').value,amount=Number($('#amount').value);
-  if(!start||!end||start>end)throw new Error('开始日期需要早于或等于结束日期。');
-  if(end>state.config.lastCompleteDate)throw new Error('请使用已经收盘的日期。');
+  refreshDateBounds();validateDateRange(start,end);
   if(!Number.isFinite(amount)||amount<1||amount>100000000)throw new Error('每次投入金额需在 1 元至 1 亿元之间。');
   return {start,end,amount,frequency:$('#frequency').value,weekday:Number($('#schedule-value').value),monthday:Number($('#schedule-value').value),stock:{...state.selected}};
 }
@@ -223,9 +234,8 @@ try{
     if(!item)throw new Error('股票池尚未配置。');
     state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);$('#stock-kind').textContent=item.kind;
   }
-  $('#start-date').max=state.config.lastCompleteDate;$('#end-date').max=state.config.lastCompleteDate;$('#end-date').value=state.config.lastCompleteDate;
+  refreshDateBounds();
   await run();
 }catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
-
 
 

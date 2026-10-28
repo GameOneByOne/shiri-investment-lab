@@ -7,7 +7,7 @@ const states={cataloguing:'核对股票名单并分批采集',running:'分批采
 let busy=false;
 async function refresh(){
   if(busy)return;
-  busy=true;$('refresh').disabled=true;
+  busy=true;
   try{
     const response=await fetch(config.url+'/rest/v1/rpc/market_bulk_progress',{method:'POST',headers:{apikey:config.key,'Content-Type':'application/json'},body:'{}',signal:AbortSignal.timeout(20000)});
     if(!response.ok)throw new Error('进度读取失败，请稍后刷新。');
@@ -36,7 +36,6 @@ async function refresh(){
     for(const f of d.recentFailures??[]){const li=document.createElement('li');li.textContent=f.symbol+'：'+f.status+'；'+(f.error||'详见采集日志');$('failures').append(li);}
     if(!$('failures').children.length){const li=document.createElement('li');li.textContent='暂无记录';$('failures').append(li);}
   }catch(error){$('error').textContent=error.message||'进度读取失败';}
-  finally{busy=false;$('refresh').disabled=false;}
+  finally{busy=false;}
 }
-$('refresh').addEventListener('click',refresh);
 refresh();setInterval(refresh,60000);
