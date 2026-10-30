@@ -22,7 +22,7 @@ export function scheduledDates({start,end,frequency,weekday=1,monthday=1},bars){
   return dates;
 }
 
-export function simulate(options,bars,benchmarkBars=[]){
+export function simulate(options,bars,benchmarkBars=[],dividends=[]){
   const {start,end,amount}=options;
   if(!start||!end||start>end||!Number.isFinite(amount)||amount<=0) throw new Error('请检查日期和投入金额。');
   const usable=bars.filter(b=>b.date>=start&&b.date<=end);
@@ -39,10 +39,35 @@ export function simulate(options,bars,benchmarkBars=[]){
       purchases.set(execution,(purchases.get(execution)||0)+1);
     }
   }
-  let units=0,indexUnits=0,total=0,count=0,indexCursor=-1;
+  const actions=dividends.filter(e=>e.status==='implemented'&&e.exDate>=start&&e.exDate<=end)
+    .sort((a,b)=>a.exDate.localeCompare(b.exDate));
+  const seen=new Set();
+  for(const e of actions){
+    const key=(e.source||'')+':'+e.id;
+    if(seen.has(key)||!/^\d{4}-\d{2}-\d{2}$/.test(e.exDate)||e.recordDate&&e.recordDate>=e.exDate)throw new Error('分红记录的日期或标识异常。');
+    seen.add(key);
+    for(const value of [e.cashPer10,e.bonusSharesPer10,e.transferSharesPer10])
+      if(value!=null&&(!Number.isFinite(value)||value<0))throw new Error('分红送转数值异常。');
+  }
+  let units=0,indexUnits=0,total=0,count=0,indexCursor=-1,cash=0,actionCursor=0;
+  const holdings=[];
   const series=[];
   for(const bar of usable){
     if(!(bar.close>0&&Number.isFinite(bar.close)))throw new Error('行情包含无效收盘价。');
+    // Entitlement uses record-date closing holdings. Ex-date purchases are excluded.
+    // Cash is a receivable from ex-date, then retained as cash (no reinvestment).
+    const priorUnits=units;
+    while(actionCursor<actions.length&&actions[actionCursor].exDate<=bar.date){
+      const e=actions[actionCursor++];
+      let entitled=priorUnits;
+      if(e.recordDate){
+        let lo=0,hi=holdings.length-1,found=-1;
+        while(lo<=hi){const mid=(lo+hi)>>1;if(holdings[mid].date<=e.recordDate){found=mid;lo=mid+1;}else hi=mid-1;}
+        entitled=found<0?0:holdings[found].units;
+      }
+      cash+=entitled*(e.cashPer10??0)/10;
+      units+=entitled*((e.bonusSharesPer10??0)+(e.transferSharesPer10??0))/10;
+    }
     while(indexCursor+1<benchmarkBars.length&&benchmarkBars[indexCursor+1].date<=bar.date)indexCursor++;
     const indexBar=benchmarkBars[indexCursor];
     const n=purchases.get(bar.date)||0;
@@ -54,10 +79,11 @@ export function simulate(options,bars,benchmarkBars=[]){
         indexUnits+=amount*n/indexBar.close;
       }
     }
+    holdings.push({date:bar.date,units});
     if(!count)continue;
-    const assets=units*bar.close;
+    const assets=units*bar.close+cash;
     const indexAssets=indexBar?indexUnits*indexBar.close:null;
-    series.push({date:bar.date,contributed:total,assets,profit:assets-total,rate:(assets-total)/total,
+    series.push({date:bar.date,contributed:total,assets,profit:assets-total,rate:(assets-total)/total,cash,units,
       benchmarkAssets:indexAssets,benchmarkProfit:indexAssets===null?null:indexAssets-total,
       benchmarkRate:indexAssets===null?null:(indexAssets-total)/total,purchases:n});
   }
@@ -71,3 +97,4 @@ export function sampleSeries(series,granularity){
   for(const row of series)groups.set(row.date.slice(0,granularity==='month'?7:4),row);
   return [...groups.values()];
 }
+

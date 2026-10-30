@@ -36,3 +36,30 @@ test('pre-listing years cannot accumulate and execute on IPO day',()=>{
 test('no-variance single-day scenario is valid and has zero profit',()=>{
   const r=simulate({...options,end:'2024-01-05'},bars);assert.equal(r.last.profit,0);assert.equal(r.last.rate,0);
 });
+
+const action={id:'cash-1',source:'fixture',status:'implemented',recordDate:'2024-01-05',exDate:'2024-01-08',cashPer10:10,bonusSharesPer10:0,transferSharesPer10:0};
+test('cash dividend offsets ex-date price reduction and excludes ex-date purchases',()=>{
+  const b=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:9}];
+  const r=simulate({...options,end:'2024-01-08'},b,[],[action]);
+  assert.equal(r.last.cash,10);assert.equal(r.last.contributed,200);
+  assert.equal(r.last.assets,200);assert.equal(r.last.profit,0);
+});
+test('bonus and transfer shares preserve assets through ex-rights adjustment',()=>{
+  const b=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:5}];
+  const r=simulate({...options,end:'2024-01-08',frequency:'weekly',weekday:5},b,[],[{...action,cashPer10:0,bonusSharesPer10:3,transferSharesPer10:7}]);
+  assert.equal(r.last.units,20);assert.equal(r.last.assets,100);assert.equal(r.last.profit,0);
+});
+test('record-date entitlement is fixed even when purchases occur before ex-date',()=>{
+  const b=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:10},{date:'2024-01-09',close:9}];
+  const r=simulate(options,b,[],[{...action,exDate:'2024-01-09'}]);
+  assert.equal(r.last.cash,10);
+  const startingOnEx=simulate({...options,start:'2024-01-09'},b,[],[{...action,exDate:'2024-01-09'}]);
+  assert.equal(startingOnEx.last.cash,0);
+});
+test('proposals are excluded; retained dividends are not reinvested',()=>{
+  const b=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:9},{date:'2024-01-09',close:18}];
+  const o={...options,frequency:'weekly',weekday:5};
+  assert.equal(simulate(o,b,[],[{...action,status:'proposed'}]).last.assets,180);
+  const r=simulate(o,b,[],[action]);assert.equal(r.last.units,10);assert.equal(r.last.cash,10);assert.equal(r.last.assets,190);
+});
+

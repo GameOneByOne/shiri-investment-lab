@@ -5,27 +5,17 @@ const source='https://proxy.finance.qq.com/ifzqgtimg/appstock/app/newfqkline/get
 
 export function parseBars(payload,task){
   if(payload.code && payload.code!==0)throw new Error('Source returned an error');
-  const adjust=task.adjust??(task.security.kind==='指数'?'none':'qfq');
-  if(!['none','qfq','hfq'].includes(adjust))throw new Error('Invalid adjustment mode');
-  const key=adjust==='none'?'day':adjust+'day';
-  const values=payload.data?.[task.symbol]?.[key];
-  if(!Array.isArray(values))throw new Error(`Missing ${key}; refusing mixed adjustment modes`);
+  if(task.adjust && task.adjust!=='none')throw new Error('Invalid adjustment mode: raw prices only');
+  const values=payload.data?.[task.symbol]?.day;
+  if(!Array.isArray(values))throw new Error('Missing day; raw prices required');
   const dates=new Set();
-  for(const row of values)if(!Array.isArray(row)||row.length<5)throw new Error('Invalid daily bar format');
-  return values.filter(row=>row[0]>=`${task.year}-01-01`&&row[0]<=`${task.year}-12-31`&&row[0]>=task.security.start&&row[0]<=task.end_date).map(row=>{
-    const [date,o,c,h,l]=row, [open,close,high,low]=[o,c,h,l].map(Number);
+  for(const row of values)if(!Array.isArray(row)||row.length<3)throw new Error('Invalid daily bar format');
+  return values.filter(row=>row[0]>=`${task.year}-01-01`&&row[0]<=`${task.year}-12-31`&&row[0]>='2021-01-01'&&row[0]>=task.security.start&&row[0]<=task.end_date).map(row=>{
+    const date=row[0],close=Number(row[2]);
     if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||new Date(date).toISOString().slice(0,10)!==date||dates.has(date))throw new Error('Invalid or duplicate trading date');
-    if(![open,close,high,low].every(n=>Number.isFinite(n)&&n>0&&n<1e9)||low>Math.min(open,close)||Math.max(open,close)>high)throw new Error('Invalid OHLC price');
+    if(!Number.isFinite(close)||close<=0||close>=1e9)throw new Error('Invalid close price');
     dates.add(date);
-    const optional=(value,scale=1)=>{
-      if(value===undefined||value===null||value===''||value==='--')return null;
-      const number=Number(value);
-      if(!Number.isFinite(number)||number<0)throw new Error('Invalid trading statistic');
-      return number*scale;
-    };
-    // Preserve Tencent's native volume instead of guessing shares vs lots.
-    return {date,open,close,high,low,volumeRaw:optional(row[5]),
-      volumeUnit:'tencent_native',turnoverRate:optional(row[7],.01),amountCny:optional(row[8],10000)};
+    return {date,close};
   }).sort((a,b)=>a.date.localeCompare(b.date));
 }
 
@@ -69,7 +59,7 @@ export function createWorker(config,fetcher=globalThis.fetch){
           if(task.dataset==='dividends'){
             bars=await fetchDividends(task,fetcher);
           }else{
-            const mode=task.adjust??(task.symbol==='sh000001'?'none':'qfq');
+            const mode=task.adjust??'none';
             const adjust=mode==='none'?'':mode;
             const query=new URLSearchParams({param:`${task.symbol},day,${task.year}-01-01,${task.year}-12-31,640,${adjust}`});
             const response=await fetcher(source+'?'+query,{headers:{'User-Agent':'Mozilla/5.0'},signal:AbortSignal.timeout(18000)});

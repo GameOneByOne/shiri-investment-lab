@@ -19,8 +19,8 @@
       <form id="investment-form">
         <div class="sentence">
           <div class="sentence-line">假如我在</div>
-          <div class="date-line"><label class="sr-only" for="start-date">开始日期</label><input required type="date" id="start-date" value="2020-01-02" min="2020-01-02"><span class="to">到</span></div>
-          <div class="date-line"><label class="sr-only" for="end-date">结束日期</label><input required type="date" id="end-date" min="2020-01-02"><span>之间，</span></div>
+          <div class="date-line"><label class="sr-only" for="start-date">开始日期</label><input required type="date" id="start-date" value="2021-01-01" min="2021-01-01"><span class="to">到</span></div>
+          <div class="date-line"><label class="sr-only" for="end-date">结束日期</label><input required type="date" id="end-date" min="2021-01-01"><span>之间，</span></div>
           <div class="sentence-line schedule-line"><label class="sr-only" for="frequency">定投周期</label><select id="frequency"><option value="monthly">每月</option><option value="weekly">每周</option><option value="daily">每个交易日</option></select><label class="sr-only" for="schedule-value">定投日期</label><select id="schedule-value" aria-label="每月几号"></select><span>投入</span></div>
           <div class="sentence-line amount-line"><span class="currency">¥</span><label class="sr-only" for="amount">每次投入金额</label><input id="amount" type="number" min="1" max="100000000" step="any" value="1000" required inputmode="decimal"><span>元，</span></div>
           <div class="sentence-line">买入<span id="stock-kind">股票</span></div>
@@ -37,19 +37,19 @@
     </section>
     <section class="result-panel" aria-labelledby="result-heading">
       <div class="result-top"><button id="export-button" class="icon-button" disabled title="导出每日回测结果">↓ <span>导出数据</span></button></div>
-      <div class="result-heading-row"><div><p id="result-heading" class="metric-label">累计模拟收益</p><div class="hero-value" id="hero-value">—<span>元</span></div></div><div class="period-stamp"><span id="period-years">2020 — 2026</span></div></div>
+      <div class="result-heading-row"><div><p id="result-heading" class="metric-label">累计模拟收益</p><div class="hero-value" id="hero-value">—<span>元</span></div></div><div class="period-stamp"><span id="period-years">2021 — 2026</span></div></div>
       <div class="chart-toolbar"><div class="metric-tabs" role="group" aria-label="曲线指标"><button data-metric="profit" class="active" aria-pressed="true">收益金额</button><button data-metric="rate" aria-pressed="false">收益率</button><button data-metric="assets" aria-pressed="false">总资产</button></div><div class="granularity-tabs" role="group" aria-label="曲线时间粒度"><button data-granularity="day" aria-pressed="false">日</button><button data-granularity="month" class="active" aria-pressed="true">月</button><button data-granularity="year" aria-pressed="false">年</button></div></div>
       <div class="chart-container" id="chart-container"><svg id="chart" viewBox="0 0 840 390" role="img" aria-label="定投历史收益曲线"><title>等待历史数据</title></svg><div id="chart-tooltip" class="chart-tooltip" hidden></div><div class="chart-state" id="chart-state" role="status" aria-live="polite"><span class="loader"></span><strong>正在翻阅历史</strong><p>正在读取历史行情，随后在你的浏览器中计算。</p></div></div>
       <div class="chart-bottom"><div class="legend"><span><i class="legend-main"></i><span id="legend-stock">贵州茅台</span></span><span id="benchmark-legend" hidden><i class="legend-benchmark"></i>上证指数</span></div><span class="sampling-note" id="sampling-note">按月显示期末值</span></div>
       <div class="benchmark-row"><div><span class="compare-icon">⇄</span><label for="benchmark-toggle">和上证指数比一比</label><span class="info-dot" title="相同投入日期、相同投入金额，按指数点位计算虚拟份额。指数仅作参照，不能直接买入。">i</span></div><input type="checkbox" id="benchmark-toggle" class="switch" role="switch" aria-label="开启上证指数对比"><span class="benchmark-description">相同时间，相同投入</span></div>
       <div class="stats-grid"><div><span>累计投入</span><strong id="stat-invested">—</strong></div><div><span>期末总资产</span><strong id="stat-assets">—</strong></div><div><span>累计收益率</span><strong id="stat-rate">—</strong></div><div><span>定投次数</span><strong id="stat-count">—</strong></div></div>
       <div class="result-context"><span class="status-dot"></span><span id="data-status">真实历史行情 · 正在加载</span></div>
-      <details class="method-details"><summary>这条曲线是怎么算的？ <span>＋</span></summary><p>按指定日期投入，非交易日顺延至下一个有行情的交易日；每月不足指定日号时取当月最后一天，顺延超出结束日期的投入不执行。每日定投仅在交易日执行。曲线按日、月或年显示期末值，切换粒度不改变计算结果。</p><p>股票与 ETF 使用前复权收盘价计算虚拟份额，以模拟价格变化；虚拟份额不是实际股数。暂未模拟税费、整手限制及真实分红现金流，因此不代表实际交易收益。上证指数以相同日期、相同金额计算虚拟份额，仅作参考，不能直接买入。累计收益率＝模拟收益 ÷ 累计投入，并非年化收益率。</p><p id="actual-range"></p><p id="data-dimensions" hidden></p></details>
+      <details class="method-details"><summary>这条曲线是怎么算的？ <span>＋</span></summary><p>按指定日期投入，非交易日顺延至下一个有行情的交易日；每月不足指定日号时取当月最后一天，顺延超出结束日期的投入不执行。每日定投仅在交易日执行。曲线按日、月或年显示期末值，切换粒度不改变计算结果。</p><p>股票与 ETF 使用不复权收盘价计算可含小数的模拟持股。按登记日收盘持股确定权益，已实施分红在除息日计为税前应收现金，到账后仍保留现金、不再投资；送转在除权日计入理论持股，未模拟实际到账后的可卖限制。缺少登记日时按除权前持股估算；不计税费、整手限制及配股缴款。上证指数以相同日期、相同金额计算虚拟份额，仅作参考，不能直接买入。累计收益率＝模拟收益 ÷ 累计投入，并非年化收益率。</p><p id="actual-range"></p><p id="data-dimensions" hidden></p></details>
     </section>
   </main>
   <footer class="page-footer"><a href="/progress.html">数据采集进度</a></footer>
-  <dialog id="about-dialog"><button id="about-close" class="dialog-close" aria-label="关闭">×</button><span class="eyebrow">ABOUT SHIRI</span><h2>拾起时间里的答案。</h2><p>拾日让你用真实历史行情，探索不同定投选择曾经走过的路。它是一间实验室，不是一份投资建议。</p><p>数据来自腾讯财经，由独立任务每天北京时间 21:00 开始更新指定股票池。仅支持已采集的标的和区间；没有可用数据时会明确提示。</p><p>定投金额、周期及收益计算保留在当前浏览器，行情请求只发送证券代码和日期。当前版本按复权价格计算虚拟份额，实际收益还会受到费用、分红、交易规则及执行价格影响。</p><button class="run-button" id="about-done">开始我的实验 <span>→</span></button></dialog>
-  <script type="module" src="/app.mjs?v=available-picker"></script>
+  <dialog id="about-dialog"><button id="about-close" class="dialog-close" aria-label="关闭">×</button><span class="eyebrow">ABOUT SHIRI</span><h2>拾起时间里的答案。</h2><p>拾日让你用真实历史行情，探索不同定投选择曾经走过的路。它是一间实验室，不是一份投资建议。</p><p>数据来自腾讯财经，由独立任务每天北京时间 21:00 开始更新指定股票池。仅支持已采集的标的和区间；没有可用数据时会明确提示。</p><p>定投金额、周期及收益计算保留在当前浏览器，行情请求只发送证券代码和日期。当前版本按不复权收盘价计算模拟持股，独立计入税前分红与送转；实际收益仍受税费、交易规则及执行价格影响。</p><button class="run-button" id="about-done">开始我的实验 <span>→</span></button></dialog>
+  <script type="module" src="/app.mjs?v=raw-close-v1"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>

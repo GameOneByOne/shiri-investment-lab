@@ -8,17 +8,14 @@ from backend import collector
 
 
 class CollectorTests(unittest.TestCase):
-    def test_explicit_hfq_and_trading_statistics(self):
-        rows = [['2024-01-02', '10', '11', '12', '9', '123', {}, '.2', '456']]
-        payload = self.payload(rows, 'hfqday')
-        bar = collector.normalize(payload, 'sh600519', 2024, '2024-12-31', 'hfq')[0]
-        self.assertEqual(bar['volumeRaw'], 123)
-        self.assertEqual(bar['amountCny'], 4560000)
-        self.assertEqual(bar['turnoverRate'], .002)
-        with self.assertRaisesRegex(ValueError, 'qfqday'):
-            collector.normalize(payload, 'sh600519', 2024, '2024-12-31')
+    def test_raw_close_only(self):
+        rows = [['2024-01-02', 'invalid', '11', None, None, 'invalid']]
+        self.assertEqual(collector.normalize(self.payload(rows), 'sh600519', 2024, '2024-12-31'),
+                         [{'date': '2024-01-02', 'close': 11}])
+        with self.assertRaises(ValueError):
+            collector.normalize(self.payload(rows), 'sh600519', 2024, '2024-12-31', 'hfq')
 
-    def payload(self, rows, key='qfqday'):
+    def payload(self, rows, key='day'):
         return {'code': 0, 'data': {'sh600519': {key: rows}}}
 
     def test_validate_sort_and_filter_year_and_future(self):
@@ -32,9 +29,9 @@ class CollectorTests(unittest.TestCase):
 
     def test_reject_raw_fallback_duplicates_invalid_prices(self):
         row = ['2024-01-02', '10', '11', '12', '9']
-        with self.assertRaisesRegex(ValueError, 'qfqday'):
-            collector.normalize(self.payload([row], 'day'), 'sh600519', 2024, '2024-12-31')
-        for rows in ([row, row], [['2024-01-02', '10', '99', '12', '9']],
+        with self.assertRaisesRegex(ValueError, 'day'):
+            collector.normalize(self.payload([row], 'qfqday'), 'sh600519', 2024, '2024-12-31')
+        for rows in ([row, row], [['2024-01-02', '10', '-1', '12', '9']],
                      [['2024-01-02', '10', 'NaN', '12', '9']]):
             with self.assertRaises(ValueError):
                 collector.normalize(self.payload(rows), 'sh600519', 2024, '2024-12-31')
@@ -88,5 +85,4 @@ class CollectorTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
-
 

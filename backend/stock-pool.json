@@ -4,55 +4,56 @@
     "name": "贵州茅台",
     "kind": "股票",
     "pinyin": "guizhoumaotai gzmt",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sz000001",
     "name": "平安银行",
     "kind": "股票",
     "pinyin": "pinganyinhang payh",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sh600036",
     "name": "招商银行",
     "kind": "股票",
     "pinyin": "zhaoshangyinhang zsyh",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sz300750",
     "name": "宁德时代",
     "kind": "股票",
     "pinyin": "ningdeshidai ndsd",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sh510300",
     "name": "沪深300ETF",
     "kind": "ETF",
     "pinyin": "hushen300 hs300",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sh510500",
     "name": "中证500ETF",
     "kind": "ETF",
     "pinyin": "zhongzheng500 zz500",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sh510050",
     "name": "上证50ETF",
     "kind": "ETF",
     "pinyin": "shangzheng50 sz50",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   },
   {
     "symbol": "sh000001",
     "name": "上证指数",
     "kind": "指数",
     "pinyin": "shangzhengzhishu szzs",
-    "start": "2020-01-01"
+    "start": "2021-01-01"
   }
 ]
+

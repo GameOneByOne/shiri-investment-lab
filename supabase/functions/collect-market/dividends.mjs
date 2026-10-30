@@ -34,8 +34,8 @@ export function parseStockDividends(rows,task){
     return {sourceId:id,reportDate,planDate,noticeDate,recordDate,exDate,payDate:null,status,statusText,
       cashPer10:number(row.PRETAX_BONUS_RMB),bonusSharesPer10:number(row.BONUS_RATIO),
       transferSharesPer10:number(row.IT_RATIO),currency:'CNY',taxBasis:'pretax',planText,
-      source:'eastmoney_stock',sourceUrl:`https://data.eastmoney.com/yjfp/detail/${task.symbol.slice(2)}.html`,raw:row};
-  }).filter(row=>row.planDate<=task.end_date);
+      source:'eastmoney_stock',sourceUrl:`https://data.eastmoney.com/yjfp/detail/${task.symbol.slice(2)}.html`,raw:undefined};
+  }).filter(row=>row.planDate<=task.end_date&&(row.exDate||row.recordDate||row.planDate)>='2021-01-01');
 }
 const plain=text=>text.replace(/<[^>]*>/g,'').replace(/&nbsp;|&#160;/g,' ').replace(/&amp;/g,'&').trim();
 export function parseFundDividends(html,task){
@@ -59,10 +59,10 @@ export function parseFundDividends(html,task){
       status:exDate<=task.end_date?'implemented':'scheduled',statusText:'基金分红记录',
       cashPer10:number(amount[1]),bonusSharesPer10:null,transferSharesPer10:null,currency:'CNY',
       taxBasis:'source_unspecified',planText:cells[3],source:'eastmoney_fund',
-      sourceUrl:`https://fundf10.eastmoney.com/fhsp_${task.symbol.slice(2)}.html`,raw:{cells}});
+      sourceUrl:`https://fundf10.eastmoney.com/fhsp_${task.symbol.slice(2)}.html`,raw:undefined});
   }
   if(!result.length&&!/暂无|没有分红/.test(table))throw new Error('Empty fund table without an explicit no-data marker');
-  return result;
+  return result.filter(row=>row.exDate>='2021-01-01'&&row.exDate<=task.end_date);
 }
 export async function fetchDividends(task,fetcher=globalThis.fetch){
   const code=task.symbol.slice(2);
@@ -98,4 +98,3 @@ export async function fetchDividends(task,fetcher=globalThis.fetch){
   if(rows.length!==expected)throw new Error('Incomplete dividend pagination');
   return parseStockDividends(rows,task);
 }
-
