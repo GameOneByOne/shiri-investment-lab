@@ -1,5 +1,4 @@
 // A price-based simulation using virtual units, not executable stock orders.
-const DAY=86400000;
 const parse=s=>new Date(s+'T00:00:00Z');
 const iso=d=>d.toISOString().slice(0,10);
 
@@ -26,13 +25,14 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
   const {start,end,amount}=options;
   if(!start||!end||start>end||!Number.isFinite(amount)||amount<=0) throw new Error('请检查日期和投入金额。');
   const usable=bars.filter(b=>b.date>=start&&b.date<=end);
-  if(!usable.length) throw new Error('所选日期内没有可用行情。');
-  // Avoid silently postponing years of pre-listing contributions to IPO day.
-  if((parse(usable[0].date)-parse(start))/DAY>20) throw new Error(`该标的最早可用行情为 ${usable[0].date}，请将开始日期调整至上市之后。`);
+  const listedFrom=options.stock?.firstDate??options.firstDate??start;
+  if(!usable.length&&listedFrom<=end) throw new Error('所选日期内没有可用行情。');
   const dates=scheduledDates(options,usable);
   const purchases=new Map();
   let cursor=0;
   for(const planned of dates){
+    // Orders before listing are skipped, never saved up and executed at IPO.
+    if(planned<listedFrom)continue;
     while(cursor<usable.length&&usable[cursor].date<planned)cursor++;
     if(cursor<usable.length){
       const execution=usable[cursor].date;
@@ -52,6 +52,12 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
   let units=0,indexUnits=0,total=0,count=0,indexCursor=-1,cash=0,actionCursor=0;
   const holdings=[];
   const series=[];
+  let firstPurchase=null;
+  const zero=date=>({date,contributed:0,assets:0,profit:0,rate:0,cash:0,units:0,
+    benchmarkAssets:benchmarkBars.length?0:null,benchmarkProfit:benchmarkBars.length?0:null,
+    benchmarkRate:benchmarkBars.length?0:null,purchases:0});
+  // Show the requested pre-listing interval as a flat zero line.
+  for(const d=parse(start);iso(d)<=end&&(!usable.length||iso(d)<usable[0].date);d.setUTCDate(d.getUTCDate()+1))series.push(zero(iso(d)));
   for(const bar of usable){
     if(!(bar.close>0&&Number.isFinite(bar.close)))throw new Error('行情包含无效收盘价。');
     // Entitlement uses record-date closing holdings. Ex-date purchases are excluded.
@@ -72,6 +78,7 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
     const indexBar=benchmarkBars[indexCursor];
     const n=purchases.get(bar.date)||0;
     if(n){
+      firstPurchase??=bar.date;
       units+=amount*n/bar.close;
       total+=amount*n;count+=n;
       if(benchmarkBars.length){
@@ -80,15 +87,13 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
       }
     }
     holdings.push({date:bar.date,units});
-    if(!count)continue;
     const assets=units*bar.close+cash;
     const indexAssets=indexBar?indexUnits*indexBar.close:null;
-    series.push({date:bar.date,contributed:total,assets,profit:assets-total,rate:(assets-total)/total,cash,units,
+    series.push({date:bar.date,contributed:total,assets,profit:assets-total,rate:total?(assets-total)/total:0,cash,units,
       benchmarkAssets:indexAssets,benchmarkProfit:indexAssets===null?null:indexAssets-total,
-      benchmarkRate:indexAssets===null?null:(indexAssets-total)/total,purchases:n});
+      benchmarkRate:indexAssets===null?null:total?(indexAssets-total)/total:0,purchases:n});
   }
-  if(!count)throw new Error('区间内没有可执行的定投日期，请扩大日期范围或调整周期。');
-  return {series,last:series.at(-1),count,firstPurchase:series[0].date,lastDate:series.at(-1).date};
+  return {series,last:series.at(-1),count,firstPurchase,lastDate:series.at(-1).date};
 }
 
 export function sampleSeries(series,granularity){
