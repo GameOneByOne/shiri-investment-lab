@@ -10,13 +10,13 @@
 </head>
 <body>
   <a href="/">← 返回拾日</a>
-  <header><div><h1>全 A 股采集进度</h1><p>沪深北上市 A 股 · 自 2020 年或上市日起 · 三种价格口径与分红送转</p></div></header>
+  <header><div><h1>全 A 股采集进度</h1><p>沪深北上市 A 股 · 自 2021 年或上市日起 · 不复权收盘价与分红送转</p></div></header>
   <p><span id="state" role="status">正在读取进度…</span> <span id="updated"></span></p>
   <p id="error" role="alert"></p>
   <div class="cards">
     <div class="card"><span>已核实股票名单</span><strong id="discovered">—</strong><span id="universe">总数待核实</span></div>
     <div class="card"><span>完整采集成功</span><strong id="complete">—</strong><span id="stock-detail">所有价格口径及分红均成功才计入</span></div>
-    <div class="card"><span>已发布日线</span><strong id="prices">—</strong><span>包含三种口径，按入库行数统计</span></div>
+    <div class="card"><span>已发布收盘价</span><strong id="prices">—</strong><span>仅不复权，按入库行数统计</span></div>
     <div class="card"><span>已发布分红送转方案</span><strong id="dividends">—</strong><span>含预案与实施状态</span></div>
     <div class="card"><span>已完成年度／分红任务</span><strong id="requests">—</strong><span id="request-detail">—</span></div>
     <div class="card"><span>数据库容量</span><strong id="capacity">—</strong><span id="capacity-limit">免费套餐安全阈值</span></div>
@@ -26,7 +26,7 @@
     <dt>本轮数据截止日</dt><dd id="cutoff">—</dd><dt>采集开始时间</dt><dd id="started">—</dd>
     <dt>股票名单状态</dt><dd id="catalogue">—</dd><dt>下一次名单尝试</dt><dd id="catalogue-next">—</dd>
     <dt>数据源冷却至</dt><dd id="blocked">—</dd><dt>最近异常</dt><dd id="last-error">暂无</dd>
-  </dl><p>单路执行，每个行情任务之间至少间隔 6 秒，失败延迟重试。遇到 403／429 时冷却至少 24 小时；达到约 380 MiB 数据库阈值时自动暂停，保留断点。</p><p>本轮是全市场历史补采。原有 8 个标的继续每日 21:00 更新；新增股票尚未加入每日更新池。完整前复权序列发布后，股票才进入网站搜索。免费容量预计无法容纳全市场历史数据，因此这里不承诺一周内全部入库。</p></section>
+  </dl><p>单路执行，每个行情任务之间至少间隔 6 秒，失败延迟重试。遇到 403／429 时冷却至少 24 小时；达到约 380 MiB 数据库阈值时自动暂停，保留断点。</p><p>本轮是全市场历史补采。原有 8 个标的继续每日 21:00 更新；新增股票尚未加入每日更新池。完整不复权收盘价序列发布后，股票才进入网站搜索。免费容量预计无法容纳全市场历史数据，因此这里不承诺一周内全部入库。</p></section>
   <section><h2>最近未完整采集的股票</h2><ul id="failures"><li>暂无记录</li></ul></section>
   <p>每分钟自动刷新；仅展示采集统计，不包含用户输入或服务端密钥。</p>
 </body>

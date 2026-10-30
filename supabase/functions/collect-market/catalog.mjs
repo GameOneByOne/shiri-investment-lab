@@ -13,7 +13,7 @@ export function parseCatalogue(payload,page){
     const symbol=exchange+code;
     if(symbols.has(symbol))throw new Error('Duplicate catalogue symbol');
     symbols.add(symbol);
-    return {symbol,name:row.f14,listed,start:listed<'2020-01-01'?'2020-01-01':listed,exchange};
+    return {symbol,name:row.f14,listed,start:listed<'2021-01-01'?'2021-01-01':listed,exchange};
   });
   return {total,stocks};
 }

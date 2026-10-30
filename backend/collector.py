@@ -1,7 +1,7 @@
 """Scheduled market ingestion. Python 3.10+ and curl; no web/user code.
 
 Every symbol is refreshed over its configured full history so corporate actions
-cannot leave old qfq prices mixed with newly adjusted prices. Publish is atomic.
+uses raw closing prices from 2021. Cloud collection uses the paced Edge queue.
 """
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
@@ -50,37 +50,22 @@ def normalize(payload, symbol, year, end, adjust=None):
     obj = payload.get('data', {}).get(symbol)
     if not isinstance(obj, dict):
         raise ValueError('行情源缺少证券数据。')
-    mode = adjust or ('none' if symbol == 'sh000001' else 'qfq')
-    if mode not in ('none', 'qfq', 'hfq'):
-        raise ValueError('无效复权口径。')
-    key = 'day' if mode == 'none' else mode + 'day'
-    # Never silently label unadjusted equity data as qfq.
-    values = obj.get(key)
+    if adjust not in (None, 'none'):
+        raise ValueError('仅支持不复权价格。')
+    values = obj.get('day')
     if not isinstance(values, list):
-        raise ValueError(f'行情源缺少 {key} 数据，拒绝混用复权口径。')
+        raise ValueError('行情源缺少 day 数据。')
     rows = []
     for row in values:
-        if not isinstance(row, list) or len(row) < 5:
+        if not isinstance(row, list) or len(row) < 3:
             raise ValueError('日线格式无效。')
         trade_date = date.fromisoformat(row[0])
-        if trade_date.year != year or trade_date.isoformat() > end:
+        if trade_date.year != year or trade_date.isoformat() > end or trade_date < date(2021, 1, 1):
             continue
-        o, c, h, low = [float(x) for x in row[1:5]]
-        if not all(math.isfinite(x) and 0 < x < 1e9 for x in (o, c, h, low)):
-            raise ValueError('行情价格校验失败。')
-        if not low <= min(o, c) <= max(o, c) <= h:
-            raise ValueError('行情高低价校验失败。')
-        def optional(index, scale=1):
-            value = row[index] if index < len(row) else None
-            if value in (None, '', '--'):
-                return None
-            value = float(value)
-            if not math.isfinite(value) or value < 0:
-                raise ValueError('交易量价字段无效。')
-            return value * scale
-        rows.append(dict(date=row[0], open=o, close=c, high=h, low=low,
-                         volumeRaw=optional(5), volumeUnit='tencent_native',
-                         turnoverRate=optional(7, .01), amountCny=optional(8, 10000)))
+        close = float(row[2])
+        if not math.isfinite(close) or not 0 < close < 1e9:
+            raise ValueError('收盘价校验失败。')
+        rows.append(dict(date=row[0], close=close))
     rows.sort(key=lambda x: x['date'])
     if len({r['date'] for r in rows}) != len(rows):
         raise ValueError('行情日期重复。')
@@ -88,7 +73,7 @@ def normalize(payload, symbol, year, end, adjust=None):
 
 
 def download_year(symbol, year, end):
-    adjust = '' if symbol == 'sh000001' else 'qfq'
+    adjust = ''
     query = urlencode({'param': f'{symbol},day,{year}-01-01,{year}-12-31,640,{adjust}'})
     for attempt in range(3):
         try:
@@ -105,11 +90,11 @@ def download_year(symbol, year, end):
 
 
 def collect_security(security, end, downloader=download_year):
-    start = date.fromisoformat(security['start'])
+    start = max(date(2021, 1, 1), date.fromisoformat(security['start']))
     rows = []
     for year in range(start.year, date.fromisoformat(end).year + 1):
         rows.extend(downloader(security['symbol'], year, end))
-        time.sleep(0.05)
+        time.sleep(6)
     rows = [r for r in rows if security['start'] <= r['date'] <= end]
     if not rows:
         raise ValueError('股票池标的无可发布历史数据。')
@@ -150,7 +135,7 @@ def run(pool, client, end, downloader=download_year):
     run_id = client.rpc('market_run_start')
     errors, succeeded = [], 0
     try:
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             futures = {executor.submit(collect_security, item, end, downloader): item for item in pool}
             for future in as_completed(futures):
                 security = futures[future]
@@ -173,11 +158,12 @@ def main():
     parser.add_argument('--pool', type=Path, default=POOL)
     parser.add_argument('--export', type=Path, help='Fetch and validate into a JSON file without publishing.')
     args = parser.parse_args()
+    parser.error('请使用 Supabase Cron / collect-market 共享限速队列；旧本地下载入口已停用。')
     pool = load_pool(args.pool)
     now = datetime.now(TZ)
     end = (now.date() if now.hour >= 16 else now.date() - timedelta(days=1)).isoformat()
     if args.export:
-        with ThreadPoolExecutor(max_workers=3) as executor:
+        with ThreadPoolExecutor(max_workers=1) as executor:
             snapshots = list(executor.map(lambda item: {'security': item, 'bars': collect_security(item, end)}, pool))
         args.export.parent.mkdir(parents=True, exist_ok=True)
         args.export.write_text(json.dumps(snapshots, ensure_ascii=False), encoding='utf-8')
@@ -190,5 +176,4 @@ def main():
 
 if __name__ == '__main__':
     main()
-
 

@@ -6,17 +6,14 @@ const task={id:'task',attempts:1,symbol:'sh600519',year:2024,end_date:'2026-10-2
 const stock={SECURITY_CODE:'600519',REPORT_DATE:'2024-12-31 00:00:00',PLAN_NOTICE_DATE:'2025-04-03 00:00:00',
   NOTICE_DATE:'2025-06-20 00:00:00',EQUITY_RECORD_DATE:'2025-06-25 00:00:00',EX_DIVIDEND_DATE:'2025-06-26 00:00:00',
   PRETAX_BONUS_RMB:276.73,BONUS_RATIO:null,IT_RATIO:null,ASSIGN_PROGRESS:'实施分配',IMPL_PLAN_PROFILE:'10派276.73元(含税)'};
-test('price bases never fall back to a different basis; units remain explicit',()=>{
-  const row=['2024-01-02','10','11','12','9','12345',{},'0.20','456.78'];
-  const payload={data:{sh600519:{day:[row],qfqday:[row],hfqday:[row]}}};
-  for(const adjust of ['none','qfq','hfq']){
-    const b=parseBars(payload,{...task,adjust})[0];
-    assert.equal(b.volumeRaw,12345);assert.equal(b.volumeUnit,'tencent_native');
-    assert.equal(b.turnoverRate,.002);assert.equal(b.amountCny,4567800);
-  }
-  assert.throws(()=>parseBars({data:{sh600519:{day:[row]}}},{...task,adjust:'hfq'}),/hfqday/);
-  assert.throws(()=>parseBars(payload,{...task,adjust:'bogus'}),/Invalid adjustment/);
+test('only raw close is retained; adjusted-only payloads are rejected',()=>{
+  const row=['2024-01-02','invalid-open','11',null,null,'invalid-volume'];
+  assert.deepEqual(parseBars({data:{sh600519:{day:[row]}}},{...task,adjust:'none'}),[{date:'2024-01-02',close:11}]);
+  for(const adjust of ['qfq','hfq','bogus'])assert.throws(()=>parseBars({},{...task,adjust}),/Invalid adjustment/);
+  assert.throws(()=>parseBars({data:{sh600519:{qfqday:[row]}}},task),/Missing day/);
+  assert.deepEqual(parseBars({data:{sh600519:{day:[['2020-01-02',10,11]]}}},{...task,year:2020}),[]);
 });
+
 test('stock dividends keep per-ten tax basis, dates and missing payments intact',()=>{
   const event=parseStockDividends([stock],task)[0];
   assert.equal(event.cashPer10,276.73);assert.equal(event.taxBasis,'pretax');
@@ -64,4 +61,3 @@ test('worker dispatches dividend tasks through their adapter rather than price p
   assert.deepEqual(await response.json(),{completed:1,failed:0});
   assert.equal(calls.find(c=>c.name==='market_complete_task').body.p_bars[0].cashPer10,276.73);
 });
-
