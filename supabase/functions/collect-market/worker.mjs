@@ -73,7 +73,7 @@ export function createWorker(config,fetcher=globalThis.fetch){
           failed++;
           break; // A failing provider is never retried inside the same invocation.
         }
-        if(config.paced)await new Promise(resolve=>setTimeout(resolve,8000+Math.random()*2000));
+        if(config.paced)await new Promise(resolve=>setTimeout(resolve,7000+Math.random()*1000));
       }
       return Response.json({completed,failed});
     }catch(error){console.error(error.message);return Response.json({error:'Collection worker failed'},{status:502});}

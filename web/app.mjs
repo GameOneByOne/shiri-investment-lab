@@ -1,6 +1,6 @@
 import {simulate,sampleSeries} from './engine.mjs?v=raw-close-v1';
 import config from './config.mjs';
-import {createDataApi} from './data.mjs?v=raw-close-v1';
+import {createDataApi} from './data.mjs?v=ready-picker-v1';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs?v=raw-close-v1';
 
 const market=createDataApi(config);
@@ -37,6 +37,43 @@ function updateSchedule(){
 }
 $('#frequency').addEventListener('change',updateSchedule);updateSchedule();
 
+let readyStocks=[],readyLoading=false;
+function selectStock(item){
+  state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);
+  $('#stock-kind').textContent=item.kind==='ETF'?' ETF':item.kind==='指数'?'指数':'股票';
+  $('#ready-stock').value=readyStocks.some(s=>s.symbol===item.symbol)?item.symbol:'';
+  if(item.firstDate&&$('#start-date').value<item.firstDate){
+    $('#start-date').value=item.firstDate;
+    if($('#end-date').value<item.firstDate)$('#end-date').value=currentMarketDate();
+    $('#ready-status').textContent=`已按可用行情将开始日期调整为 ${item.firstDate}`;
+  }else $('#ready-status').textContent=item.firstDate?`行情区间：${item.firstDate} 至 ${item.lastDate}`:'';
+  hideSearch();
+}
+async function refreshReadyStocks(){
+  const select=$('#ready-stock');
+  if(readyLoading||(document.hidden&&readyStocks.length)||document.activeElement===select)return;
+  readyLoading=true;
+  try{
+    const page=await market.ready();
+    readyStocks=page.results;
+    const options=[new Option('选择已采集股票、ETF 或指数','')];
+    for(const item of readyStocks)options.push(new Option(`${item.name} · ${displayCode(item.symbol)}`,item.symbol));
+    select.replaceChildren(...options);select.value=state.selected.symbol;
+    select.disabled=state.busy||!readyStocks.length;
+    $('#ready-label').textContent=`直接选择已采集标的（${page.total}）`;
+    if(!readyStocks.length)$('#ready-status').textContent='暂无完整数据，采集完成后自动加入。';
+  }catch(error){
+    $('#ready-status').textContent='已采集列表暂未更新，将自动重试；也可使用上方搜索。';
+  }finally{readyLoading=false;}
+}
+$('#ready-stock').addEventListener('change',()=>{
+  const item=readyStocks.find(s=>s.symbol===$('#ready-stock').value);
+  if(item)selectStock(item);
+});
+setInterval(()=>{if(state.config)refreshReadyStocks();},60000);
+window.addEventListener('focus',()=>{if(state.config)refreshReadyStocks();});
+document.addEventListener('visibilitychange',()=>{if(state.config&&!document.hidden)refreshReadyStocks();});
+
 function hideSearch(){ clearTimeout(searchTimer);state.searchVersion++;$('#stock-results').hidden=true;$('#stock-search').setAttribute('aria-expanded','false'); }
 let searchPage={query:'',results:[],nextCursor:null,total:0};
 function renderSearch(results){
@@ -44,7 +81,156 @@ function renderSearch(results){
   const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库可用 ${searchPage.total} 个标的 · 当前显示 ${results.length} 个`;box.append(summary);
   if(!results.length){const p=document.createElement('div');p.className='search-empty';p.textContent='未找到标的，请尝试名称、拼音或代码。';box.append(p);return;}
   for(const item of results){
-    …2795 tokens truncated…p-color="#91b179" stop-opacity=".015"/></linearGradient><clipPath id="plot-clip"><rect x="${L}" y="${T-4}" width="${pw+1}" height="${ph+8}"/></clipPath></defs>`;
+    const button=document.createElement('button');button.type='button';button.role='option';
+    const name=document.createElement('span');name.textContent=item.name;
+    const code=document.createElement('small');code.textContent=displayCode(item.symbol);
+    button.append(name,code);
+    button.addEventListener('click',()=>{
+      clearTimeout(searchTimer);state.searchVersion++;
+      selectStock(item);
+    });box.append(button);
+  }
+  if(searchPage.nextCursor){
+    const more=document.createElement('button');more.type='button';more.className='search-more';more.textContent='加载更多已采集标的';
+    more.addEventListener('click',()=>{more.disabled=true;loadSearch(searchPage.query,true);});box.append(more);
+  }
+}
+let searchTimer;
+async function loadSearch(query,append=false){
+  const version=++state.searchVersion;
+  try{
+    const page=await market.available(query,append?searchPage.nextCursor:null);
+    if(version!==state.searchVersion)return;
+    searchPage={query,results:append?[...searchPage.results,...page.results]:page.results,nextCursor:page.nextCursor,total:page.total};
+    renderSearch(searchPage.results);
+  }catch(error){
+    if(version!==state.searchVersion)return;
+    const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
+    const p=document.createElement('div');p.className='search-empty';p.textContent='标的列表读取失败，请重试。';
+    const retry=document.createElement('button');retry.type='button';retry.textContent='重新加载';retry.addEventListener('click',()=>loadSearch(query));box.append(p,retry);
+  }
+}
+$('#stock-search').addEventListener('focus',()=>{if(state.config)loadSearch('');});
+$('#stock-search').addEventListener('input',()=>{
+  clearTimeout(searchTimer);
+  state.searchVersion++;
+  $('#stock-code').textContent='输入名称或代码后，从列表选择';
+  searchTimer=setTimeout(()=>loadSearch($('#stock-search').value),280);
+});
+$('#stock-search').addEventListener('keydown',e=>{
+  if(e.key==='Escape')hideSearch();
+  if(e.key==='ArrowDown'){e.preventDefault();$('#stock-results button')?.focus();}
+});
+$('#stock-results').addEventListener('keydown',e=>{
+  const buttons=[...$('#stock-results').querySelectorAll('button')];const index=buttons.indexOf(document.activeElement);
+  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}
+  if(e.key==='Escape'){hideSearch();$('#stock-search').focus();hideSearch();}
+});
+document.addEventListener('click',e=>{if(!e.target.closest('.stock-wrap'))hideSearch();});
+
+function setBusy(busy){
+  state.busy=busy;$('#run-button').disabled=busy;$('#run-label').textContent=busy?'正在寻找历史的答案…':'看看历史的答案';
+  $('#ready-stock').disabled=busy||!readyStocks.length;
+  $('#export-button').disabled=busy||!state.result;$('#benchmark-toggle').disabled=busy;
+  $('#chart-container').setAttribute('aria-busy',String(busy));
+}
+function showMessage(text,error=false){
+  const box=$('#chart-state');box.hidden=false;box.className=`chart-state${error?' error':''}`;box.replaceChildren();
+  if(!error){const spin=document.createElement('span');spin.className='loader';box.append(spin);}
+  const title=document.createElement('strong');title.textContent=error?'这次没能找到答案':'正在翻阅历史';box.append(title);
+  const p=document.createElement('p');p.textContent=text;box.append(p);
+  if(error){const button=document.createElement('button');button.className='retry-button';button.type='button';button.textContent='重新计算';button.addEventListener('click',()=>state.config?.lastCompleteDate?$('#investment-form').requestSubmit():location.reload());box.append(button);}
+}
+function getOptions(){
+  if($('#stock-search').value!==state.selected.name)throw new Error('请从搜索列表选择要回测的证券。');
+  const start=$('#start-date').value,end=$('#end-date').value,amount=Number($('#amount').value);
+  refreshDateBounds();validateDateRange(start,end);
+  if(!Number.isFinite(amount)||amount<1||amount>100000000)throw new Error('每次投入金额需在 1 元至 1 亿元之间。');
+  return {start,end,amount,frequency:$('#frequency').value,weekday:Number($('#schedule-value').value),monthday:Number($('#schedule-value').value),stock:{...state.selected}};
+}
+const history=(symbol,o)=>market.history(symbol,o);
+
+async function run(){
+  if(state.busy)return;
+  let options;
+  try{options=getOptions();}catch(e){showMessage(e.message,true);return;}
+  setBusy(true);hideSearch();showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
+  try{
+    const compare=$('#benchmark-toggle').checked;
+    const [stock,index,coverage,dividends]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null),market.dataStatus(options.stock.symbol),market.dividends(options.stock.symbol,options)]);
+    if(options.stock.kind!=='指数'&&coverage?.dividends.status!=='collected')throw new Error('分红数据尚未采集完成，暂不能计算含分红收益。');
+    state.dividends=dividends.events||[];
+    const result=simulate(options,stock.bars,index?.bars||[],state.dividends);
+    state.options=options;state.bars=stock;state.benchmark=index;state.result=result;state.coverage=coverage;
+    $('#chart-state').hidden=true;renderResult();
+  }catch(e){showMessage(e.message,true);}
+  finally{setBusy(false);}
+}
+$('#investment-form').addEventListener('submit',e=>{e.preventDefault();run();});
+
+$('#benchmark-toggle').addEventListener('change',async()=>{
+  if(!state.result||state.busy)return;
+  const wanted=$('#benchmark-toggle').checked;
+  setBusy(true);
+  try{
+    if(wanted&&!state.benchmark){showMessage('正在补齐上证指数历史，用相同投入日期进行对比。');state.benchmark=await history('sh000001',state.options);}
+    state.result=simulate(state.options,state.bars.bars,wanted?state.benchmark.bars:[],state.dividends);
+    $('#chart-state').hidden=true;renderResult();
+  }catch(e){$('#benchmark-toggle').checked=!wanted;showMessage(e.message,true);}
+  finally{setBusy(false);}
+});
+
+function renderResult(){
+  const {last,count,firstPurchase,lastDate}=state.result;
+  const o=state.options;
+  const hero=$('#hero-value');hero.replaceChildren(document.createTextNode(signed(last.profit)));const unit=document.createElement('span');unit.textContent='元';hero.append(unit);hero.classList.toggle('negative',last.profit<0);
+  $('#period-years').textContent=`${firstPurchase.slice(0,4)} — ${lastDate.slice(0,4)}`;
+  $('#legend-stock').textContent=o.stock.name;
+  $('#benchmark-legend').hidden=!$('#benchmark-toggle').checked;
+  $('#stat-invested').textContent='¥ '+compact.format(last.contributed);
+  $('#stat-assets').textContent='¥ '+compact.format(last.assets);
+  $('#stat-rate').textContent=percent(last.rate);
+  $('#stat-count').textContent=`${count} 次`;
+  const collected=state.bars.fetchedAt?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(state.bars.fetchedAt)):'';
+  const stale=state.bars.fetchedAt&&Date.now()-new Date(state.bars.fetchedAt).getTime()>48*3600000;
+  $('#data-status').textContent=`腾讯财经 · ${o.stock.kind==='指数'?'指数点位模拟':'不复权收盘价 · 含税前分红送转'} · Supabase 行情 · 截至 ${lastDate}${collected?' · 采集于 '+collected:''}${stale?' · 采集已超过 48 小时，请留意更新状态':''}`;
+  $('#actual-range').textContent=`实际行情区间：${state.bars.firstDate} 至 ${state.bars.lastDate}；首笔执行日期：${firstPurchase}。${state.bars.lastDate<o.end?'结束日无更新行情，按最后一个可用交易日估值。':''}`;
+  const coverage=state.coverage;
+  const extra=$('#data-dimensions');
+  extra.hidden=!coverage;
+  if(coverage){
+    const modes=coverage.prices.map(p=>({none:'不复权',qfq:'前复权',hfq:'后复权'}[p.adjust])).join('、');
+    const dividends=coverage.dividends;
+    extra.textContent=`已采集价格口径：${modes||'等待采集'}。${dividends.status==='collected'?`另存有 ${dividends.count} 条分红方案记录（含预案与实施状态）。`:dividends.status==='not_applicable'?'指数不适用分红明细。':'分红明细尚未采集完成。'}现金分红计入资产但不再投资；送转按除权日计入理论持股。`;
+  }
+  drawChart();
+}
+
+for(const button of document.querySelectorAll('[data-metric]'))button.addEventListener('click',()=>{
+  state.metric=button.dataset.metric;for(const b of document.querySelectorAll('[data-metric]')){const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}drawChart();
+});
+for(const button of document.querySelectorAll('[data-granularity]'))button.addEventListener('click',()=>{
+  state.granularity=button.dataset.granularity;for(const b of document.querySelectorAll('[data-granularity]')){const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}drawChart();
+});
+
+function drawChart(){
+  if(!state.result)return;
+  const data=sampleSeries(state.result.series,state.granularity),metric=state.metric;
+  const benchmark=$('#benchmark-toggle').checked;
+  const other={profit:'benchmarkProfit',rate:'benchmarkRate',assets:'benchmarkAssets'}[metric];
+  const svg=$('#chart'),W=Math.max(320,svg.clientWidth||840),H=Math.max(230,svg.clientHeight||390);
+  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+  const L=W<500?57:74,R=17,T=24,B=43,pw=W-L-R,ph=H-T-B;
+  let values=data.flatMap(d=>benchmark?[d[metric],d[other]]:[d[metric]]).filter(Number.isFinite);
+  let lo=Math.min(0,...values),hi=Math.max(0,...values);
+  if(hi===lo){hi+=1;lo-=1;}
+  const padding=(hi-lo)*.12;hi+=padding;lo=lo<0?lo-padding:0;
+  const x=i=>L+(data.length===1?pw/2:i/(data.length-1)*pw);
+  const y=v=>T+(hi-v)/(hi-lo)*ph;
+  const points=key=>data.map((d,i)=>`${i?'L':'M'}${x(i).toFixed(2)},${y(d[key]).toFixed(2)}`).join(' ');
+  const path=points(metric);
+  const tick=v=>metric==='rate'?`${(v*100).toFixed(0)}%`:Math.abs(v)>=1e8?`${(v/1e8).toFixed(1)}亿`:Math.abs(v)>=10000?`${(v/10000).toFixed(1)}万`:compact.format(v);
+  let html=`<title>历史定投${metric==='rate'?'收益率':metric==='assets'?'资产':'收益'}曲线</title><defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#91b179" stop-opacity=".25"/><stop offset="100%" stop-color="#91b179" stop-opacity=".015"/></linearGradient><clipPath id="plot-clip"><rect x="${L}" y="${T-4}" width="${pw+1}" height="${ph+8}"/></clipPath></defs>`;
   for(let i=0;i<=4;i++){
     const v=lo+(hi-lo)*i/4,yy=y(v);
     html+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="#e1e6d9" stroke-dasharray="3 5"/><text x="${L-13}" y="${yy+4}" text-anchor="end" fill="#9ba58e" font-size="11" font-family="Arial,sans-serif">${tick(v)}</text>`;
@@ -103,6 +289,7 @@ try{
     state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);$('#stock-kind').textContent=item.kind;
   }
   refreshDateBounds();
+  await refreshReadyStocks();
   await run();
 }catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
 
