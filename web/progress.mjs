@@ -29,9 +29,11 @@ async function refresh(){
     $('progress').max=d.stocks.total||1;$('progress').value=d.stocks.completed;
     $('coverage').textContent=`${number(d.stocks.completed)} / ${number(d.stocks.total)} 只完整成功。`+(d.catalogue.complete?'名单已核对完整。':'名单尚未完整，继续逐页核实。');
     $('cutoff').textContent=d.cutoff;$('started').textContent=time(d.startedAt);
-    $('catalogue').textContent=d.catalogue.complete?'完整':'已核实 '+number(d.catalogue.discoveredStocks)+' 只，下一页 '+d.catalogue.nextPage;
+    const official=d.catalogue.source==='https://www.bse.cn/nqxxController/nqxxCnzq.do';
+    const label=official&&d.catalogue.complete?'沪深北交易所官方名单已核实':d.catalogue.sourceLabel;
+    $('catalogue').textContent=(label?label+'；':'')+(d.catalogue.complete?'完整':'已核实 '+number(d.catalogue.discoveredStocks)+' 只，'+(official?'北交所':'')+'下一页 '+(d.catalogue.nextPage+(official?1:0)));
     $('catalogue-next').textContent=d.catalogue.complete?'无需继续翻页':time(d.catalogue.nextAttemptAt);
-    $('blocked').textContent=time(d.blockedUntil);$('last-error').textContent=/error sending request|fetch failed|connection/i.test(d.lastError??'')?'数据源连接失败，已保存断点并延迟重试。':d.lastError||'暂无';
+    $('blocked').textContent=time(d.blockedUntil);$('last-error').textContent=/BSE.*HTTP 307/.test(d.lastError??'')?'北交所名单接口返回重复重定向，已延迟重试；已核实股票继续采集。':/error sending request|fetch failed|connection/i.test(d.lastError??'')?'数据源连接失败，已保存断点并延迟重试。':d.lastError||'暂无';
     $('failures').replaceChildren();
     for(const f of d.recentFailures??[]){const li=document.createElement('li');li.textContent=f.symbol+'：'+f.status+'；'+(f.error||'详见采集日志');$('failures').append(li);}
     if(!$('failures').children.length){const li=document.createElement('li');li.textContent='暂无记录';$('failures').append(li);}
