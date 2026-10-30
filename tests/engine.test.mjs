@@ -10,7 +10,8 @@ test('a weekend weekly order moves to the following trading day',()=>{
   const r=simulate({...options,frequency:'weekly',weekday:6},bars);assert.equal(r.count,1);assert.equal(r.firstPurchase,'2024-01-08');assert.equal(r.last.assets,75);
 });
 test('orders outside the available end are not charged',()=>{
-  assert.throws(()=>simulate({...options,end:'2024-01-05',frequency:'weekly',weekday:6},bars),/没有可执行/);
+  const r=simulate({...options,end:'2024-01-05',frequency:'weekly',weekday:6},bars);
+  assert.equal(r.count,0);assert.equal(r.last.contributed,0);assert.equal(r.last.profit,0);
 });
 test('monthly 31 clamps to February end and then rolls forward',()=>{
   const b=[{date:'2024-02-28',close:10},{date:'2024-03-01',close:20}];
@@ -31,7 +32,29 @@ test('period grouping takes the last value and never sums returns',()=>{
   assert.deepEqual(sampleSeries(series,'year').map(x=>x.profit),[10,40]);
 });
 test('pre-listing years cannot accumulate and execute on IPO day',()=>{
-  assert.throws(()=>simulate({...options,start:'2020-01-01'},bars),/最早可用/);
+  const r=simulate({...options,start:'2023-01-01',stock:{firstDate:'2024-01-05'},frequency:'monthly',monthday:1},bars);
+  assert.equal(r.count,0);assert.equal(r.firstPurchase,null);
+  assert(r.series.every(d=>d.contributed===0&&d.assets===0&&d.profit===0&&d.rate===0));
+});
+
+test('pre-listing monthly orders are skipped and later schedules execute normally',()=>{
+  const b=[{date:'2023-04-19',close:10},{date:'2023-05-04',close:10},{date:'2023-06-01',close:20}];
+  const o={start:'2023-01-01',end:'2023-06-01',amount:100,frequency:'monthly',monthday:1,stock:{firstDate:'2023-04-19'}};
+  const r=simulate(o,b);
+  assert.equal(r.series[0].date,'2023-01-01');assert.equal(r.count,2);
+  assert.equal(r.firstPurchase,'2023-05-04');assert.equal(r.last.contributed,200);
+  assert(r.series.filter(d=>d.date<'2023-05-04').every(d=>d.contributed===0&&d.profit===0&&d.rate===0));
+  assert.equal(r.last.assets,300);
+});
+test('an entirely pre-listing range returns a zero curve, including benchmark zeros',()=>{
+  const r=simulate({start:'2023-01-01',end:'2023-01-31',amount:100,frequency:'weekly',weekday:1,stock:{firstDate:'2023-04-19'}},[],[{date:'2023-01-03',close:3000}]);
+  assert.equal(r.series.length,31);assert.equal(r.count,0);assert.equal(r.firstPurchase,null);
+  assert(r.series.every(d=>d.assets===0&&d.contributed===0&&d.profit===0&&d.rate===0&&d.benchmarkAssets===0));
+});
+test('already-listed securities still roll holiday orders to the next trading day',()=>{
+  const r=simulate({start:'2023-01-01',end:'2023-01-04',amount:100,frequency:'monthly',monthday:1,stock:{firstDate:'2021-01-04'}},[{date:'2023-01-03',close:10},{date:'2023-01-04',close:11}]);
+  assert.equal(r.count,1);assert.equal(r.firstPurchase,'2023-01-03');assert.equal(r.last.assets,110);
+  assert.equal(r.series[0].contributed,0);
 });
 test('no-variance single-day scenario is valid and has zero profit',()=>{
   const r=simulate({...options,end:'2024-01-05'},bars);assert.equal(r.last.profit,0);assert.equal(r.last.rate,0);
