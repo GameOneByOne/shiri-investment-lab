@@ -20,6 +20,7 @@ export function createDataApi(config,fetcher=globalThis.fetch){
   }
   return {
     config:()=>rpc('market_config'),
+    ready:()=>rpc('market_ready'),
     search:(query,signal)=>rpc('market_search',{p_query:query},signal),
     available:(query='',after=null,signal)=>rpc('market_available',{p_query:query,p_after:after},signal),
     history:(symbol,options)=>rpc('market_history',{p_symbol:symbol,p_start:options.start,p_end:options.end}),

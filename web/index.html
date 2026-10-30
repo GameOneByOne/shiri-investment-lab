@@ -5,7 +5,7 @@
   <meta name="description" content="用真实历史行情，看看一笔笔定投会走向哪里。">
   <meta name="theme-color" content="#f7f8f2"><title>拾日 · 假如当时开始定投</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214435'/%3E%3Cpath d='M16 44V30m11 14V21m11 23V27m11 17V14' stroke='%23d9eb9a' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=ready-picker-v1">
 </head>
 <body>
   <header class="site-header">
@@ -28,6 +28,7 @@
             <label class="sr-only" for="stock-search">搜索股票、ETF 或指数</label>
             <div class="stock-input-wrap"><input id="stock-search" role="combobox" aria-expanded="false" aria-controls="stock-results" autocomplete="off" value="贵州茅台" placeholder="输入名称或代码"><span aria-hidden="true">⌕</span></div>
             <span id="stock-code" class="stock-code">600519.SH</span>
+            <div class="ready-picker"><label for="ready-stock" id="ready-label">直接选择已采集标的</label><select id="ready-stock" disabled><option value="">正在加载已采集标的…</option></select><span id="ready-status" role="status"></span></div>
             <div id="stock-results" class="stock-results" role="listbox" hidden></div>
           </div>
           <div class="sentence-ending">那么，我的收益曲线是<span>↗</span></div>
@@ -49,7 +50,7 @@
   </main>
   <footer class="page-footer"><a href="/progress.html">数据采集进度</a></footer>
   <dialog id="about-dialog"><button id="about-close" class="dialog-close" aria-label="关闭">×</button><span class="eyebrow">ABOUT SHIRI</span><h2>拾起时间里的答案。</h2><p>拾日让你用真实历史行情，探索不同定投选择曾经走过的路。它是一间实验室，不是一份投资建议。</p><p>数据来自腾讯财经，由独立任务每天北京时间 21:00 开始更新指定股票池。仅支持已采集的标的和区间；没有可用数据时会明确提示。</p><p>定投金额、周期及收益计算保留在当前浏览器，行情请求只发送证券代码和日期。当前版本按不复权收盘价计算模拟持股，独立计入税前分红与送转；实际收益仍受税费、交易规则及执行价格影响。</p><button class="run-button" id="about-done">开始我的实验 <span>→</span></button></dialog>
-  <script type="module" src="/app.mjs?v=raw-close-v1"></script>
+  <script type="module" src="/app.mjs?v=ready-picker-v1"></script>
   <script>
     window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
   </script>
