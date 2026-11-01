@@ -59,6 +59,7 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
   // Show the requested pre-listing interval as a flat zero line.
   for(const d=parse(start);iso(d)<=end&&(!usable.length||iso(d)<usable[0].date);d.setUTCDate(d.getUTCDate()+1))series.push(zero(iso(d)));
   for(const bar of usable){
+    const events=[];
     if(!(bar.close>0&&Number.isFinite(bar.close)))throw new Error('行情包含无效收盘价。');
     // Entitlement uses record-date closing holdings. Ex-date purchases are excluded.
     // Cash is a receivable from ex-date, then retained as cash (no reinvestment).
@@ -73,6 +74,10 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
       }
       cash+=entitled*(e.cashPer10??0)/10;
       units+=entitled*((e.bonusSharesPer10??0)+(e.transferSharesPer10??0))/10;
+      if(entitled>0&&[e.cashPer10,e.bonusSharesPer10,e.transferSharesPer10].some(v=>v>0)){
+        events.push({...e,entitledUnits:entitled,cashAmount:entitled*(e.cashPer10??0)/10,
+          bonusUnits:entitled*(e.bonusSharesPer10??0)/10,transferUnits:entitled*(e.transferSharesPer10??0)/10});
+      }
     }
     while(indexCursor+1<benchmarkBars.length&&benchmarkBars[indexCursor+1].date<=bar.date)indexCursor++;
     const indexBar=benchmarkBars[indexCursor];
@@ -91,9 +96,16 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
     const indexAssets=indexBar?indexUnits*indexBar.close:null;
     series.push({date:bar.date,contributed:total,assets,profit:assets-total,rate:total?(assets-total)/total:0,cash,units,
       benchmarkAssets:indexAssets,benchmarkProfit:indexAssets===null?null:indexAssets-total,
-      benchmarkRate:indexAssets===null?null:total?(indexAssets-total)/total:0,purchases:n});
+      benchmarkRate:indexAssets===null?null:total?(indexAssets-total)/total:0,purchases:n,events});
   }
   return {series,last:series.at(-1),count,firstPurchase,lastDate:series.at(-1).date};
+}
+
+// Keep exact event dates visible even when the curve is sampled by month or year.
+export function chartSeries(series,granularity){
+  const rows=new Map(sampleSeries(series,granularity).map(row=>[row.date,row]));
+  for(const row of series)if(row.events?.length)rows.set(row.date,row);
+  return [...rows.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
 
 export function sampleSeries(series,granularity){
@@ -102,4 +114,3 @@ export function sampleSeries(series,granularity){
   for(const row of series)groups.set(row.date.slice(0,granularity==='month'?7:4),row);
   return [...groups.values()];
 }
-

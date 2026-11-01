@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {simulate,sampleSeries,scheduledDates} from '../web/engine.mjs';
+import {simulate,sampleSeries,scheduledDates,chartSeries} from '../web/engine.mjs';
 const bars=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:20},{date:'2024-01-09',close:15}];
 const options={start:'2024-01-05',end:'2024-01-09',frequency:'daily',amount:100};
 test('daily contributions are valued after purchase at close',()=>{
@@ -61,6 +61,31 @@ test('no-variance single-day scenario is valid and has zero profit',()=>{
 });
 
 const action={id:'cash-1',source:'fixture',status:'implemented',recordDate:'2024-01-05',exDate:'2024-01-08',cashPer10:10,bonusSharesPer10:0,transferSharesPer10:0};
+test('chart retains all entitled actions and their exact benefits across sampling modes',()=>{
+  const actions=[action,{...action,id:'shares',cashPer10:0,bonusSharesPer10:3,transferSharesPer10:7,planText:'10送3转7'}];
+  const r=simulate(options,bars,[],actions);
+  for(const mode of ['day','month','year']){
+    const points=chartSeries(r.series,mode),event=points.find(d=>d.date==='2024-01-08');
+    assert.equal(event.events.length,2);
+    assert.equal(event.events[0].cashAmount,10);
+    assert.equal(event.events[1].bonusUnits,3);
+    assert.equal(event.events[1].transferUnits,7);
+    assert.equal(event.events[1].planText,'10送3转7');
+    assert.equal(points.filter(d=>d.date==='2024-01-08').length,1);
+    assert.equal(points.at(-1),r.last);
+  }
+});
+test('proposals and actions with no entitled holdings produce no chart markers',()=>{
+  const proposed=simulate(options,bars,[],[{...action,status:'proposed'}]);
+  assert(proposed.series.every(d=>!d.events?.length));
+  const onExDate=simulate({...options,start:'2024-01-08'},bars,[],[action]);
+  assert(onExDate.series.every(d=>!d.events?.length));
+});
+test('an action during missing prices is attached to the next valuation with its original ex-date',()=>{
+  const r=simulate(options,[bars[0],bars[2]],[],[action]);
+  assert.equal(r.last.events[0].exDate,'2024-01-08');
+  assert.equal(r.last.date,'2024-01-09');
+});
 test('cash dividend offsets ex-date price reduction and excludes ex-date purchases',()=>{
   const b=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:9}];
   const r=simulate({...options,end:'2024-01-08'},b,[],[action]);
@@ -85,4 +110,3 @@ test('proposals are excluded; retained dividends are not reinvested',()=>{
   assert.equal(simulate(o,b,[],[{...action,status:'proposed'}]).last.assets,180);
   const r=simulate(o,b,[],[action]);assert.equal(r.last.units,10);assert.equal(r.last.cash,10);assert.equal(r.last.assets,190);
 });
-

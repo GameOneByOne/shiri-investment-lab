@@ -1,5 +1,6 @@
-import {simulate,sampleSeries} from './engine.mjs?v=listing-zero-v1';
+import {simulate,chartSeries} from './engine.mjs?v=dividend-markers-v1';
 import config from './config.mjs';
+import {chartScale} from './chart-scale.mjs';
 import {createDataApi} from './data.mjs?v=listing-zero-v1';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs?v=listing-zero-v1';
 
@@ -35,13 +36,24 @@ function updateSchedule(){
   input.value=frequency==='monthly'&&Number(previous)<=31&&Number(previous)>0?previous:'1';
   input.setAttribute('aria-label',frequency==='weekly'?'每周几':'每月几号');
 }
-$('#frequency').addEventListener('change',updateSchedule);updateSchedule();
+function updatePlanSummary(){
+  const frequency=$('#frequency').value;
+  const day=$('#schedule-value').selectedOptions[0]?.textContent||'';
+  const schedule=frequency==='daily'?'每个交易日':frequency==='weekly'?`每${day}`:`每月 ${day}`;
+  const amount=Number($('#amount').value);
+  const stock=$('#stock-search').value===state.selected.name?`买入${state.selected.name}`:'请选择买入标的';
+  $('#plan-summary').textContent=`${schedule}投入 ${Number.isFinite(amount)&&amount>0?new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(amount):'—'} 元，${stock}`;
+}
+$('#frequency').addEventListener('change',()=>{updateSchedule();updatePlanSummary();});updateSchedule();
+$('#investment-form').addEventListener('input',updatePlanSummary);
+$('#investment-form').addEventListener('change',updatePlanSummary);
+updatePlanSummary();
 
 let readyStocks=[],readyLoading=false;
 function selectStock(item){
   state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);
   $('#stock-kind').textContent=item.kind==='ETF'?' ETF':item.kind==='指数'?'指数':'股票';
-  hideSearch();
+  hideSearch();updatePlanSummary();
 }
 async function refreshReadyStocks(){
   if(readyLoading||(document.hidden&&readyStocks.length))return;
@@ -180,9 +192,6 @@ function renderResult(){
   $('#stat-assets').textContent='¥ '+compact.format(last.assets);
   $('#stat-rate').textContent=percent(last.rate);
   $('#stat-count').textContent=`${count} 次`;
-  const collected=state.bars.fetchedAt?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(state.bars.fetchedAt)):'';
-  const stale=state.bars.fetchedAt&&Date.now()-new Date(state.bars.fetchedAt).getTime()>48*3600000;
-  $('#data-status').textContent=state.bars.bars.length?`腾讯财经 · ${o.stock.kind==='指数'?'指数点位模拟':'不复权收盘价 · 含税前分红送转'} · Supabase 行情 · 截至 ${lastDate}${collected?' · 采集于 '+collected:''}${stale?' · 采集已超过 48 小时，请留意更新状态':''}`:'所选区间尚未上市 · 投入与收益均为 0';
   $('#actual-range').textContent=state.bars.bars.length?`实际行情区间：${state.bars.firstDate} 至 ${state.bars.lastDate}；首笔执行日期：${firstPurchase||'尚未执行'}。${state.bars.lastDate<o.end?'结束日无更新行情，按最后一个可用交易日估值。':''}`:'所选区间早于上市日期，不执行定投，也不将这些投入累计至上市日。';
   const coverage=state.coverage;
   const extra=$('#data-dimensions');
@@ -204,52 +213,81 @@ for(const button of document.querySelectorAll('[data-granularity]'))button.addEv
 
 function drawChart(){
   if(!state.result)return;
-  const data=sampleSeries(state.result.series,state.granularity),metric=state.metric;
+  const data=chartSeries(state.result.series,state.granularity),metric=state.metric;
   const benchmark=$('#benchmark-toggle').checked;
-  const other={profit:'benchmarkProfit',rate:'benchmarkRate',assets:'benchmarkAssets'}[metric];
+  const other={profit:'benchmarkProfit',assets:'benchmarkAssets'}[metric];
   const svg=$('#chart'),W=Math.max(320,svg.clientWidth||840),H=Math.max(230,svg.clientHeight||390);
   svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
   const L=W<500?57:74,R=17,T=24,B=43,pw=W-L-R,ph=H-T-B;
   let values=data.flatMap(d=>benchmark?[d[metric],d[other]]:[d[metric]]).filter(Number.isFinite);
-  let lo=Math.min(0,...values),hi=Math.max(0,...values);
-  if(hi===lo){hi+=1;lo-=1;}
-  const padding=(hi-lo)*.12;hi+=padding;lo=lo<0?lo-padding:0;
-  const x=i=>L+(data.length===1?pw/2:i/(data.length-1)*pw);
+  const {lo,hi,ticks:axisTicks}=chartScale(values);
+  const firstTime=Date.parse(data[0].date),timeSpan=Date.parse(data.at(-1).date)-firstTime;
+  const x=i=>L+(timeSpan?(Date.parse(data[i].date)-firstTime)/timeSpan*pw:pw/2);
   const y=v=>T+(hi-v)/(hi-lo)*ph;
   const points=key=>data.map((d,i)=>`${i?'L':'M'}${x(i).toFixed(2)},${y(d[key]).toFixed(2)}`).join(' ');
   const path=points(metric);
-  const tick=v=>metric==='rate'?`${(v*100).toFixed(0)}%`:Math.abs(v)>=1e8?`${(v/1e8).toFixed(1)}亿`:Math.abs(v)>=10000?`${(v/10000).toFixed(1)}万`:compact.format(v);
-  let html=`<title>历史定投${metric==='rate'?'收益率':metric==='assets'?'资产':'收益'}曲线</title><defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#91b179" stop-opacity=".25"/><stop offset="100%" stop-color="#91b179" stop-opacity=".015"/></linearGradient><clipPath id="plot-clip"><rect x="${L}" y="${T-4}" width="${pw+1}" height="${ph+8}"/></clipPath></defs>`;
-  for(let i=0;i<=4;i++){
-    const v=lo+(hi-lo)*i/4,yy=y(v);
-    html+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="#e1e6d9" stroke-dasharray="3 5"/><text x="${L-13}" y="${yy+4}" text-anchor="end" fill="#9ba58e" font-size="11" font-family="Arial,sans-serif">${tick(v)}</text>`;
+  const tick=v=>Math.abs(v)>=1e8?`${(v/1e8).toFixed(1)}亿`:Math.abs(v)>=10000?`${(v/10000).toFixed(1)}万`:compact.format(v);
+  let html=`<defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#91b179" stop-opacity=".25"/><stop offset="100%" stop-color="#91b179" stop-opacity=".015"/></linearGradient><clipPath id="plot-clip"><rect x="${L}" y="${T-4}" width="${pw+1}" height="${ph+8}"/></clipPath></defs>`;
+  for(const v of axisTicks){
+    const yy=y(v),zero=v===0;
+    html+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="${zero?'#aebd9d':'#e1e6d9'}" stroke-dasharray="${zero?'4 5':'3 5'}"/><text x="${L-13}" y="${yy+4}" text-anchor="end" fill="${zero?'#63745c':'#9ba58e'}" font-weight="${zero?'600':'400'}" font-size="11" font-family="Arial,sans-serif">${tick(v)}</text>`;
   }
-  if(lo<0&&hi>0)html+=`<line x1="${L}" x2="${W-R}" y1="${y(0)}" y2="${y(0)}" stroke="#aebd9d" stroke-dasharray="4 5"/>`;
   const ticks=[...new Set(Array.from({length:Math.min(5,data.length)},(_,i)=>Math.round(i*(data.length-1)/Math.max(1,Math.min(5,data.length)-1))))];
-  for(const i of ticks){const label=state.granularity==='year'?data[i].date.slice(0,4):data[i].date.slice(0,7).replace('-','.');html+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="#9ba58e" font-size="11" font-family="Arial,sans-serif">${label}</text>`;}
+  const tickLabels=new Set();
+  for(const i of ticks){const label=state.granularity==='year'?data[i].date.slice(0,4):data[i].date.slice(0,7).replace('-','.');if(tickLabels.has(label))continue;tickLabels.add(label);html+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="#9ba58e" font-size="11" font-family="Arial,sans-serif">${label}</text>`;}
   html+=`<g clip-path="url(#plot-clip)"><path d="${path} L${x(data.length-1)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#chart-fill)"/>`;
   if(benchmark)html+=`<path d="${points(other)}" fill="none" stroke="#b68d62" stroke-width="1.8" stroke-dasharray="6 5" stroke-linecap="round" stroke-linejoin="round"/>`;
   html+=`<path d="${path}" fill="none" stroke="#48734a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
   if(data.length===1)html+=`<circle cx="${x(0)}" cy="${y(data[0][metric])}" r="4" fill="#48734a"/>`;
   html+=`</g><g id="chart-crosshair" visibility="hidden"><line id="crosshair-line" y1="${T}" y2="${H-B}" stroke="#b2c0a0" stroke-dasharray="3 4"/><circle id="crosshair-point" r="4" fill="#48734a" stroke="#f7f8f2" stroke-width="2"/></g><rect id="chart-hit" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" tabindex="0" role="slider" aria-label="浏览曲线日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"/>`;
+  data.forEach((d,i)=>{
+    if(d.events?.length)html+=`<g class="dividend-marker" data-index="${i}" tabindex="0" role="button" aria-label="${d.date} 分红送转，查看方案"><circle cx="${x(i)}" cy="${y(d[metric])}" r="11" fill="transparent"/><circle class="event-dot" cx="${x(i)}" cy="${y(d[metric])}" r="4.5" fill="#b88f65" stroke="#fffef9" stroke-width="2"/></g>`;
+  });
   svg.innerHTML=html;
+  $('#event-legend').hidden=!data.some(d=>d.events?.length);
   $('#sampling-note').textContent=state.granularity==='day'?'按日显示':state.granularity==='month'?'按月显示期末值':'按年显示期末值';
   let selected=0;
   const tip=$('#chart-tooltip');tip.hidden=true;
   function hover(i){
     selected=Math.max(0,Math.min(data.length-1,i));const d=data[selected],xx=x(selected);
     $('#chart-crosshair').setAttribute('visibility','visible');$('#crosshair-line').setAttribute('x1',xx);$('#crosshair-line').setAttribute('x2',xx);$('#crosshair-point').setAttribute('cx',xx);$('#crosshair-point').setAttribute('cy',y(d[metric]));
-    $('#chart-hit').setAttribute('aria-valuenow',selected);$('#chart-hit').setAttribute('aria-valuetext',`${d.date}，${metric==='rate'?percent(d[metric]):signed(d[metric])}`);
-    tip.replaceChildren();const date=document.createElement('strong');date.textContent=d.date;tip.append(date);
-    function line(name,value,className=''){const div=document.createElement('div');div.className='tooltip-line '+className;const a=document.createElement('span');a.textContent=name;const b=document.createElement('span');b.textContent=value;div.append(a,b);tip.append(div);}
-    line(state.options.stock.name,metric==='rate'?percent(d[metric]):'¥ '+signed(d[metric]));
-    if(benchmark)line('上证指数',metric==='rate'?percent(d[other]):'¥ '+signed(d[other]),'benchmark');
-    line('累计投入','¥ '+compact.format(d.contributed),'tooltip-invested');tip.hidden=false;
+    $('#chart-hit').setAttribute('aria-valuenow',selected);$('#chart-hit').setAttribute('aria-valuetext',`${d.date}，${signed(d[metric])}`);
+    tip.replaceChildren();
+    const date=document.createElement('strong');date.textContent=d.date;tip.append(date);
+    function line(name,value,className='',parent=tip){const div=document.createElement('div');div.className='tooltip-line '+className;const a=document.createElement('span');a.textContent=name;const b=document.createElement('span');b.textContent=value;div.append(a,b);parent.append(div);}
+    line(metric==='profit'?'当前收益':'当前总资产','¥ '+signed(d[metric]));
+    if(metric==='profit')line('收益率',percent(d.rate));
+    if(benchmark)line('上证指数','¥ '+signed(d[other]),'benchmark');
+    line('累计投入','¥ '+compact.format(d.contributed),'tooltip-invested');
+    for(const event of d.events||[]){
+      const block=document.createElement('div');block.className='tooltip-event';
+      const parts=[];
+      const number=n=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:4}).format(n);
+      if(event.cashPer10>0)parts.push(`派 ${number(event.cashPer10)} 元`);
+      if(event.bonusSharesPer10>0)parts.push(`送 ${number(event.bonusSharesPer10)} 股`);
+      if(event.transferSharesPer10>0)parts.push(`转增 ${number(event.transferSharesPer10)} 股`);
+      line('分红方案',`每 10 ${state.options.stock.kind==='ETF'?'份':'股'}${parts.join('，')}`,'',block);
+      const received=[];
+      if(event.cashAmount>0)received.push(`¥ ${money.format(event.cashAmount)}`);
+      if(event.bonusUnits>0)received.push(`获送 ${number(event.bonusUnits)} 股`);
+      if(event.transferUnits>0)received.push(`转增 ${number(event.transferUnits)} 股`);
+      line('按持仓数应收',received.join('，'),'',block);
+      tip.append(block);
+    }
+    tip.hidden=false;
     const container=$('#chart-container'),left=xx/W*container.clientWidth;
     tip.style.left=Math.max(0,Math.min(container.clientWidth-tip.offsetWidth,left+12))+'px';
     tip.style.top='16px';
   }
-  $('#chart-hit').addEventListener('pointermove',e=>{const rect=svg.getBoundingClientRect();const xx=(e.clientX-rect.left)/rect.width*W;hover(Math.round((xx-L)/pw*(data.length-1)));});
+  for(const marker of svg.querySelectorAll('.dividend-marker')){
+    const show=()=>hover(Number(marker.dataset.index));
+    const hide=()=>{tip.hidden=true;$('#chart-crosshair').setAttribute('visibility','hidden');};
+    marker.addEventListener('pointerenter',show);marker.addEventListener('pointerleave',hide);
+    marker.addEventListener('focus',show);marker.addEventListener('blur',hide);
+    marker.addEventListener('click',show);
+    marker.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show();}});
+  }
+  $('#chart-hit').addEventListener('pointermove',e=>{const rect=svg.getBoundingClientRect();const xx=(e.clientX-rect.left)/rect.width*W;hover(data.reduce((best,_,i)=>Math.abs(x(i)-xx)<Math.abs(x(best)-xx)?i:best,0));});
   $('#chart-hit').addEventListener('pointerleave',()=>{tip.hidden=true;$('#chart-crosshair').setAttribute('visibility','hidden');});
   $('#chart-hit').addEventListener('focus',()=>hover(selected));
   $('#chart-hit').addEventListener('blur',()=>{tip.hidden=true;$('#chart-crosshair').setAttribute('visibility','hidden');});
