@@ -3,29 +3,33 @@ import {chartScale} from './chart-scale.mjs';
 import {currentMarketDate} from './dates.mjs';
 const $=s=>document.querySelector(s),today=currentMarketDate(),KEY='shiri.personal-plan.v1';
 const money=n=>'¥ '+new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
-const pct=n=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:1}).format(n)+'%';
 const defaults={start:today,years:5,initial:0,amount:1000,frequency:'monthly',rate:6,rateUnit:'yearly'};
-let plan={...defaults},records=[],metric='assets',result;
+const metric='assets';
+let plan={...defaults},records=[],result;
 $('#p-chart-range').addEventListener('change',draw);
 try{const stored=JSON.parse(localStorage.getItem(KEY));if(stored){project(stored.plan,stored.records,today);plan=stored.plan;records=stored.records;}}catch{$('#save-status').textContent='未能读取本地数据，当前使用新计划';}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({plan,records}));$('#save-status').textContent='已保存到当前浏览器';}catch{$('#save-status').textContent='浏览器无法保存，刷新后更改会丢失';}}
 function fillPlan(){for(const [id,key] of Object.entries({'p-start':'start','p-years':'years','p-initial':'initial','p-amount':'amount','p-frequency':'frequency','p-rate':'rate','p-rate-unit':'rateUnit'}))$('#'+id).value=plan[key];}
 fillPlan();$('#a-date').value=today;
 $('#projection-form').addEventListener('submit',e=>{e.preventDefault();try{const candidate={start:$('#p-start').value,years:Number($('#p-years').value),initial:Number($('#p-initial').value),amount:Number($('#p-amount').value),frequency:$('#p-frequency').value,rate:Number($('#p-rate').value),rateUnit:$('#p-rate-unit').value};project(candidate,records,today);plan=candidate;save();render();$('#plan-error').textContent='';}catch(error){$('#plan-error').textContent=error.message;}});
-$('#a-mode').addEventListener('change',()=>{const assets=$('#a-mode').value==='assets';$('#actual-value-label').textContent=assets?'账户资产总值（元）':'本期实际收益率（%）';$('#a-value').min=assets?'0':'-99.99';$('#a-value').value='';});
-$('#actual-form').addEventListener('submit',e=>{e.preventDefault();try{const value=$('#a-value').value;if(!value.trim())throw Error('请填写实际数据。');const record={date:$('#a-date').value,mode:$('#a-mode').value,value:Number(value)};const candidate=[...records.filter(r=>r.date!==record.date),record].sort((a,b)=>a.date.localeCompare(b.date));project(plan,candidate,today);records=candidate;save();render();$('#record-error').textContent='';$('#a-value').value='';}catch(error){$('#record-error').textContent=error.message;}});
-for(const button of document.querySelectorAll('[data-projection-metric]'))button.addEventListener('click',()=>{metric=button.dataset.projectionMetric;for(const b of document.querySelectorAll('[data-projection-metric]')){b.classList.toggle('active',b===button);b.setAttribute('aria-pressed',String(b===button));}draw();});
+$('#actual-form').addEventListener('submit',e=>{e.preventDefault();try{const value=$('#a-value').value;if(!value.trim())throw Error('请填写实际数据。');const record={date:$('#a-date').value,mode:'assets',value:Number(value)};const candidate=[...records.filter(r=>r.date!==record.date),record].sort((a,b)=>a.date.localeCompare(b.date));project(plan,candidate,today);records=candidate;save();render();$('#record-error').textContent='';$('#a-value').value='';}catch(error){$('#record-error').textContent=error.message;}});
+function displayGap(element,value){
+  const rounded=Math.round(value*100)/100;
+  element.textContent=(rounded>0?'+':rounded<0?'−':'')+money(Math.abs(rounded));
+  element.classList.toggle('gap-positive',rounded>0);
+  element.classList.toggle('gap-negative',rounded<0);
+}
 function render(){
   result=project(plan,records,today);const final=result.expected.at(-1),latest=result.latest;
   $('#projection-range').textContent=plan.start+' — '+result.end;
   $('#forecast-assets').textContent=money(final.assets);$('#forecast-profit').textContent=money(final.profit);$('#forecast-invested').textContent=money(final.invested);
-  $('#progress-date').textContent=latest?'记录至 '+latest.date:'尚无实际记录';
+  $('#progress-date').textContent=latest?'最新纪录至 '+latest.date:'尚无实际记录';
   const target=latest?result.expected.find(p=>p.date===latest.date):null;
   $('#actual-assets').textContent=latest?money(latest.assets):'—';$('#current-target').textContent=target?money(target.assets):'—';
-  $('#target-gap').textContent=latest?money(latest.assets-target.assets):'—';$('#target-progress').textContent=target?.assets>0?pct(latest.assets/target.assets*100):'—';
+  if(latest)displayGap($('#target-gap'),latest.assets-target.assets);else{$('#target-gap').textContent='—';$('#target-gap').classList.remove('gap-positive','gap-negative');}
   const elapsed=Math.max(0,Math.min(100,(Date.parse(latest?.date||today)-Date.parse(plan.start))/(Date.parse(result.end)-Date.parse(plan.start))*100));
-  $('#progress-fill').style.width=elapsed+'%';$('#time-progress').textContent=`${latest?'按最新记录日':'按今天'}计算，计划时间进度 ${pct(elapsed)}${latest?'；资产达成比例与同期理想预期比较。':'；实际资产进度等待你的第一条记录。'}`;
-  const min=new Date(Date.parse(plan.start+'T00:00:00Z')+86400000).toISOString().slice(0,10),max=today<result.end?today:result.end;
+  $('#progress-fill').style.width=elapsed+'%';
+  const min=plan.start,max=today<result.end?today:result.end;
   $('#a-date').min=min;$('#a-date').max=max;$('#actual-form button').disabled=min>max;
   $('#p-chart-range option[value=recorded]').disabled=!latest;
   if(!latest)$('#p-chart-range').value='full';
@@ -33,9 +37,10 @@ function render(){
   const body=$('#records-body');body.replaceChildren();
   for(const record of [...records].reverse()){
     const row=result.actual.find(p=>p.date===record.date),target=result.expected.find(p=>p.date===record.date),tr=document.createElement('tr');
-    const values=[record.date,record.mode==='assets'?'资产 '+money(record.value):'本期 '+pct(record.value),money(row.assets),money(row.profit),money(row.assets-target.assets)];
+    const values=[record.date,money(row.assets),money(row.profit)];
     for(const value of values){const td=document.createElement('td');td.textContent=value;tr.append(td);}
-    const td=document.createElement('td'),button=document.createElement('button');button.type='button';button.className='record-delete';button.textContent='删除';button.setAttribute('aria-label','删除 '+record.date+' 的记录');button.addEventListener('click',()=>{records=records.filter(r=>r.date!==record.date);save();render();$('#record-error').textContent='已删除记录，后续收益率记录按新的相邻区间重新计算。';});td.append(button);tr.append(td);body.append(tr);
+    const gap=document.createElement('td');displayGap(gap,row.assets-target.assets);tr.append(gap);
+    const td=document.createElement('td'),button=document.createElement('button');button.type='button';button.className='record-delete';button.textContent='删除';button.setAttribute('aria-label','删除 '+record.date+' 的记录');button.addEventListener('click',()=>{records=records.filter(r=>r.date!==record.date);save();render();$('#record-error').textContent='已删除记录。';});td.append(button);tr.append(td);body.append(tr);
   }
   draw();
 }
@@ -46,7 +51,7 @@ function draw(){
   const chartEnd=$('#p-chart-range').value==='recorded'&&result.latest?result.latest.date:result.end;
   const visible=result.expected.filter(p=>p.date<=chartEnd);
   const start=Date.parse(plan.start),span=Date.parse(chartEnd)-start;
-  const x=d=>L+(Date.parse(d)-start)/span*pw;
+  const x=d=>L+(span?(Date.parse(d)-start)/span*pw:pw/2);
   const indices=new Set([0,visible.length-1]);const stride=Math.max(1,Math.floor(visible.length/250));for(let i=0;i<visible.length;i+=stride)indices.add(i);
   const expected=[...indices].sort((a,b)=>a-b).map(i=>visible[i]);
   const {lo,hi,ticks}=chartScale([...expected,...result.actual].map(p=>p[metric]));const y=v=>T+(hi-v)/(hi-lo)*ph;
@@ -54,8 +59,9 @@ function draw(){
   const number=n=>Math.abs(n)>=1e8?(n/1e8).toFixed(1)+'亿':Math.abs(n)>=10000?(n/10000).toFixed(1)+'万':new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
   let html='<defs><linearGradient id="expected-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9cb47b" stop-opacity=".18"/><stop offset="1" stop-color="#9cb47b" stop-opacity="0"/></linearGradient></defs>';
   for(const v of ticks)html+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?'#b2bfa4':'#e2e6da'}" stroke-dasharray="3 5"/><text x="${L-10}" y="${y(v)+4}" text-anchor="end" fill="#909c84" font-size="10">${number(v)}</text>`;
-  for(let i=0;i<4;i++){const t=start+span*i/3;const d=new Date(t).toISOString().slice(0,10);html+=`<text x="${L+pw*i/3}" y="${H-10}" text-anchor="middle" fill="#909c84" font-size="10">${span<=120*86400000?d.slice(5):d.slice(0,7)}</text>`;}
+  for(let i=0;i<(span?4:1);i++){const t=start+span*i/3;const d=new Date(t).toISOString().slice(0,10);html+=`<text x="${span?L+pw*i/3:L+pw/2}" y="${H-10}" text-anchor="middle" fill="#909c84" font-size="10">${span<=120*86400000?d.slice(5):d.slice(0,7)}</text>`;}
   html+=`<path d="${path(expected)} L${x(chartEnd)},${y(0)} L${x(plan.start)},${y(0)} Z" fill="url(#expected-fill)"/><path d="${path(expected)}" fill="none" stroke="#66864e" stroke-width="2.4" stroke-dasharray="6 4"/>`;
+  if(expected.length===1)html+=`<circle cx="${x(plan.start)}" cy="${y(expected[0][metric])}" r="4" fill="#66864e"/>`;
   if(result.actual.length){html+=`<path d="${path(result.actual)}" fill="none" stroke="#b68d62" stroke-width="2.6"/>`;for(const p of result.actual)html+=`<circle cx="${x(p.date)}" cy="${y(p[metric])}" r="4" fill="#b68d62" stroke="#fffef9" stroke-width="2"/>`;}
   html+=`<line id="p-crosshair" y1="${T}" y2="${H-B}" stroke="#a9b59b" stroke-dasharray="3 5" visibility="hidden"/><rect id="projection-hit" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" tabindex="0" role="slider" aria-label="浏览预期日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${visible.length-1}" aria-valuenow="0"/>`;
   svg.innerHTML=html;const tip=$('#projection-tooltip'),hit=$('#projection-hit');tip.hidden=true;let index=0;
