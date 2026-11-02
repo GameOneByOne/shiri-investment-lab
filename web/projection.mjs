@@ -20,14 +20,16 @@ export function project(plan,records=[],today=iso(Date.now())){
   const actual=sorted.length?[{...expected[0]}]:[];
   const seen=new Set();
   for(const record of sorted){
-    if(!validDate(record.date)||record.date<=start||record.date>end||record.date>today||seen.has(record.date))throw Error('记录日期需晚于计划开始日、不晚于今天与计划结束日，且不能重复。');
+    if(!validDate(record.date)||record.date<start||record.date>end||record.date>today||seen.has(record.date))throw Error('记录日期不能早于计划开始日、不晚于今天与计划结束日，且不能重复。');
     seen.add(record.date);
     if(!['rate','assets'].includes(record.mode)||!Number.isFinite(record.value)||(record.mode==='rate'&&(record.value<=-100||record.value>1000))||(record.mode==='assets'&&(record.value<0||record.value>1e15)))throw Error('请填写有效的实际收益率或资产总值。');
     if(record.mode==='assets')actualAssets=record.value;
-    else {const days=(time(record.date)-time(previous))/DAY,factor=(1+record.value/100)**(1/days);for(let t=time(previous)+DAY;t<=time(record.date);t+=DAY)actualAssets=actualAssets*factor+contribution(iso(t));}
+    else {const days=(time(record.date)-time(previous))/DAY;if(days<=0)throw Error('收益率记录需有至少一天的计算区间。');const factor=(1+record.value/100)**(1/days);for(let t=time(previous)+DAY;t<=time(record.date);t+=DAY)actualAssets=actualAssets*factor+contribution(iso(t));}
     if(!Number.isFinite(actualAssets)||actualAssets>1e15)throw Error('实际结果过大，请检查记录。');
     const target=expected[(time(record.date)-time(start))/DAY];
-    actual.push({date:record.date,assets:actualAssets,invested:target.invested,profit:actualAssets-target.invested});previous=record.date;
+    const point={date:record.date,assets:actualAssets,invested:target.invested,profit:actualAssets-target.invested};
+    if(actual.at(-1)?.date===record.date)actual[actual.length-1]=point;else actual.push(point);
+    previous=record.date;
   }
   return {expected,actual,end,latest:actual.at(-1)||null};
 }
