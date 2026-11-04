@@ -4,12 +4,13 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f7f8f2"><title>我的 · 拾日</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214435'/%3E%3Cpath d='M16 44V30m11 14V21m11 23V27m11 17V14' stroke='%23d9eb9a' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css?v=release-070">
+  <link rel="stylesheet" href="/style.css?v=release-080">
   <link rel="stylesheet" href="/my.css?v=projection-v1">
+  <link rel="stylesheet" href="/feedback.css?v=080">
 </head>
 <body>
   <header class="site-header">
-    <div class="brand-lockup"><a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a><span class="release-badge">内测版<span>V0.7.0</span></span></div>
+    <div class="brand-lockup"><a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a><span class="release-badge">内测版<span>V0.8.0</span></span></div>
     <span class="brand-description">一个关于时间与投资的小实验</span>
     <nav class="main-nav" aria-label="主导航"><a href="/">首页</a><a href="/my.html" aria-current="page">我的</a></nav>
   </header>
@@ -42,5 +43,6 @@
     <details class="projection-method"><summary>计算方式与数据保存</summary><p>预期收益率按有效周期收益率换算为日复利：每日为 1 天，每月为 365/12 天，每年为 365 天。开始日计入初始资产与首笔投入，后续先计算当天收益，再于日末投入；每日投入包含周末，月/年投入沿用开始日的日号。</p><p>实际记录直接使用你录入的账户资产总值；已有的历史收益率记录仍按原计算口径展示。实际曲线只连接已记录点，连线不代表未记录日的真实估值。收益＝资产－初始资产－计划累计追加投入；如果实际投入与计划不同，请先调整计划再比较。</p><p>修改计划会重新计算所有对比结果，已保存的实际记录会保留；不兼容的日期会提示，需先修改或删除相关记录。计划和记录只保存在当前浏览器，不跨设备同步。这里展示的是假设推算。</p></details>
   </main>
   <script type="module" src="/my.mjs?v=projection-v1"></script>
+  <script type="module" src="/feedback.mjs?v=080"></script>
 </body>
 </html>
