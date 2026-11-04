@@ -4,12 +4,12 @@
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#f7f8f2"><title>我的 · 拾日</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214435'/%3E%3Cpath d='M16 44V30m11 14V21m11 23V27m11 17V14' stroke='%23d9eb9a' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css?v=projection-v1">
+  <link rel="stylesheet" href="/style.css?v=release-070">
   <link rel="stylesheet" href="/my.css?v=projection-v1">
 </head>
 <body>
   <header class="site-header">
-    <a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a>
+    <div class="brand-lockup"><a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a><span class="release-badge">内测版<span>V0.7.0</span></span></div>
     <span class="brand-description">一个关于时间与投资的小实验</span>
     <nav class="main-nav" aria-label="主导航"><a href="/">首页</a><a href="/my.html" aria-current="page">我的</a></nav>
   </header>
@@ -28,7 +28,7 @@
         <div class="projection-title"><div><h2 id="projection-title">未来，正在一点点发生。</h2></div><span id="projection-range"></span></div>
         <div class="forecast-stats"><div><span>期末目标资产</span><strong id="forecast-assets">—</strong></div><div><span>计划累计投入</span><strong id="forecast-invested">—</strong></div><div><span>目标收益总值</span><strong id="forecast-profit">—</strong></div></div>
         <div class="planner-chart-toolbar"><span class="projection-chart-label">资产总值</span><div class="projection-legend"><span><i></i>理想预期</span><span><i class="actual-line"></i>实际记录</span></div></div>
-        <div class="projection-range-control"><label for="p-chart-range">显示范围</label><select id="p-chart-range"><option value="full">完整计划</option><option value="recorded">截至最新记录</option></select></div>
+        <div class="projection-range-control"><span class="chart-zoom-hint">滚轮或触控板缩放 · 最近 7 天</span><button id="p-chart-reset" type="button" hidden>重置缩放</button><label for="p-chart-range">显示范围</label><select id="p-chart-range"><option value="full">完整计划</option><option value="recorded">截至最新记录</option></select></div>
         <div class="projection-chart-wrap"><svg id="projection-chart" role="img" aria-label="理想预期与实际投资对比曲线"></svg><div id="projection-tooltip" class="chart-tooltip" hidden></div></div>
         <p class="planner-note" id="chart-note">添加实际记录后，第二条曲线会从计划开始日延伸至最新记录日。</p>
         <div class="current-progress"><div><h3>当前进度 <small id="progress-date">尚无实际记录</small></h3></div><div class="progress-track"><span id="progress-fill"></span></div><div class="progress-stats"><div><span>最新实际资产</span><strong id="actual-assets">—</strong></div><div><span>同期预期资产</span><strong id="current-target">—</strong></div><div><span>与预期差额</span><strong id="target-gap">—</strong></div></div></div>

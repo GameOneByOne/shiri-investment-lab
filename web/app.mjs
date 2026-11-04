@@ -1,7 +1,7 @@
 import {simulate,chartSeries} from './engine.mjs?v=dividend-markers-v1';
 import config from './config.mjs';
 import {chartScale} from './chart-scale.mjs';
-import {createDataApi} from './data.mjs?v=listing-zero-v1';
+import {createDataApi} from './data.mjs?v=annual-storage-v1';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs?v=listing-zero-v1';
 
 const market=createDataApi(config);
@@ -49,33 +49,16 @@ $('#investment-form').addEventListener('input',updatePlanSummary);
 $('#investment-form').addEventListener('change',updatePlanSummary);
 updatePlanSummary();
 
-let readyStocks=[],readyLoading=false;
 function selectStock(item){
   state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);
   $('#stock-kind').textContent=item.kind==='ETF'?' ETF':item.kind==='指数'?'指数':'股票';
   hideSearch();updatePlanSummary();
 }
-async function refreshReadyStocks(){
-  if(readyLoading||(document.hidden&&readyStocks.length))return;
-  readyLoading=true;
-  try{
-    const page=await market.ready();
-    readyStocks=page.results;
-    const selected=readyStocks.find(s=>s.symbol===state.selected.symbol);
-    if(selected)state.selected={...state.selected,...selected};
-    if(!$('#stock-results').hidden)loadSearch(searchPage.query);
-  }catch(error){/* Search can still load the paginated list when this cache is unavailable. */}
-  finally{readyLoading=false;}
-}
-setInterval(()=>{if(state.config)refreshReadyStocks();},60000);
-window.addEventListener('focus',()=>{if(state.config)refreshReadyStocks();});
-document.addEventListener('visibilitychange',()=>{if(state.config&&!document.hidden)refreshReadyStocks();});
-
 function hideSearch(){ clearTimeout(searchTimer);state.searchVersion++;$('#stock-results').hidden=true;$('#stock-search').setAttribute('aria-expanded','false'); }
 let searchPage={query:'',results:[],nextCursor:null,total:0};
 function renderSearch(results){
   const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
-  const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库可用 ${searchPage.total} 个标的 · 当前显示 ${results.length} 个`;box.append(summary);
+  const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库非 ST A 股 ${searchPage.total} 只 · 当前显示 ${results.length} 个`;box.append(summary);
   if(!results.length){const p=document.createElement('div');p.className='search-empty';p.textContent='未找到标的，请尝试名称、拼音或代码。';box.append(p);return;}
   for(const item of results){
     const button=document.createElement('button');button.type='button';button.role='option';
@@ -96,10 +79,7 @@ let searchTimer;
 async function loadSearch(query,append=false){
   const version=++state.searchVersion;
   try{
-    const q=query.trim().toLowerCase();
-    const matches=readyStocks.filter(s=>!q||(s.name+s.symbol).toLowerCase().includes(q));
-    const page=!append&&matches.length?{results:matches,total:matches.length,nextCursor:null}
-      :await market.available(query,append?searchPage.nextCursor:null);
+    const page=await market.available(query,append?searchPage.nextCursor:null);
     if(version!==state.searchVersion)return;
     searchPage={query,results:append?[...searchPage.results,...page.results]:page.results,nextCursor:page.nextCursor,total:page.total};
     renderSearch(searchPage.results);
@@ -316,7 +296,6 @@ try{
     state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);$('#stock-kind').textContent=item.kind;
   }
   refreshDateBounds();
-  await refreshReadyStocks();
   await run();
 }catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
 

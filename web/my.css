@@ -6,3 +6,5 @@
 .record-table-wrap{position:relative}.actual-form>div{min-width:0}
 
 .projection-chart-label{font-size:12px;font-weight:550;color:var(--green)}.progress-stats{grid-template-columns:repeat(3,minmax(0,1fr))}.gap-positive,.record-table td.gap-positive{color:#bd514b}.gap-negative,.record-table td.gap-negative{color:#43805a}.actual-form{grid-template-columns:1fr 1.3fr auto}@media(max-width:800px){.actual-form{grid-template-columns:1fr 1fr}.actual-form .run-button{grid-column:1/-1}.progress-stats{grid-template-columns:1fr;gap:18px}}
+
+.projection-range-control{flex-wrap:wrap}.chart-zoom-hint{margin-right:auto;color:#929d85}#p-chart-reset{background:transparent;border:1px solid #d6dece;border-radius:5px;padding:5px 8px;color:#69815a;font-size:10px;cursor:pointer}#p-chart-reset[hidden]{display:none}#p-chart-reset:focus-visible{outline:2px solid #b1c69c;outline-offset:2px}
