@@ -1,14 +1,15 @@
 import {project} from './projection.mjs';
 import {chartScale} from './chart-scale.mjs';
+import {panTimeRange,panValueRange} from './chart-pan.mjs';
 import {DAY,zoomTimeRange} from './chart-zoom.mjs';
 import {currentMarketDate} from './dates.mjs';
 const $=s=>document.querySelector(s),today=currentMarketDate(),KEY='shiri.personal-plan.v1';
 const money=n=>'¥ '+new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
 const defaults={start:today,years:5,initial:0,amount:1000,frequency:'monthly',rate:6,rateUnit:'yearly'};
 const metric='assets';
-let plan={...defaults},records=[],result,viewport=null,chartGeometry,zoomFrame;
-$('#p-chart-range').addEventListener('change',()=>{viewport=null;draw();});
-$('#p-chart-reset').addEventListener('click',()=>{viewport=null;draw();});
+let plan={...defaults},records=[],result,viewport=null,valueViewport=null,dragState=null,chartGeometry,zoomFrame;
+$('#p-chart-range').addEventListener('change',()=>{viewport=null;valueViewport=null;draw();});
+$('#p-chart-reset').addEventListener('click',()=>{viewport=null;valueViewport=null;draw();});
 try{const stored=JSON.parse(localStorage.getItem(KEY));if(stored){project(stored.plan,stored.records,today);plan=stored.plan;records=stored.records;}}catch{$('#save-status').textContent='未能读取本地数据，当前使用新计划';}
 function save(){try{localStorage.setItem(KEY,JSON.stringify({plan,records}));$('#save-status').textContent='已保存到当前浏览器';}catch{$('#save-status').textContent='浏览器无法保存，刷新后更改会丢失';}}
 function fillPlan(){for(const [id,key] of Object.entries({'p-start':'start','p-years':'years','p-initial':'initial','p-amount':'amount','p-frequency':'frequency','p-rate':'rate','p-rate-unit':'rateUnit'}))$('#'+id).value=plan[key];}
@@ -22,7 +23,7 @@ function displayGap(element,value){
   element.classList.toggle('gap-negative',rounded<0);
 }
 function render(){
-  viewport=null;
+  viewport=null;valueViewport=null;
   result=project(plan,records,today);const final=result.expected.at(-1),latest=result.latest;
   $('#projection-range').textContent=plan.start+' — '+result.end;
   $('#forecast-assets').textContent=money(final.assets);$('#forecast-profit').textContent=money(final.profit);$('#forecast-invested').textContent=money(final.invested);
@@ -55,7 +56,7 @@ function draw(){
   const bounds={start:Date.parse(plan.start),end:Date.parse(chartEnd)};
   viewport??={...bounds};
   const {start,end}=viewport,span=end-start;
-  $('#p-chart-reset').hidden=Math.abs(start-bounds.start)<1&&Math.abs(end-bounds.end)<1;
+  $('#p-chart-reset').hidden=Math.abs(start-bounds.start)<1&&Math.abs(end-bounds.end)<1&&!valueViewport;
   chartGeometry={W,L,pw,bounds,T,ph};
   const x=d=>L+(span?(Date.parse(d)-start)/span*pw:pw/2);
   const first=Math.max(0,Math.floor((start-bounds.start)/DAY)),last=Math.min(result.expected.length-1,Math.ceil((end-bounds.start)/DAY));
@@ -72,7 +73,11 @@ function draw(){
       if(i){const previous=rows[i-1],pt=Date.parse(previous.date);for(const edge of [start,end])if(pt<edge&&t>edge)values.push(previous[metric]+(p[metric]-previous[metric])*(edge-pt)/(t-pt));}
     }
   }
-  const {lo,hi,ticks}=chartScale(values);const y=v=>T+(hi-v)/(hi-lo)*ph;
+  const automatic=chartScale(values);
+  const {lo,hi}=valueViewport??automatic;
+  const ticks=valueViewport?Array.from({length:5},(_,i)=>lo+(hi-lo)*i/4):automatic.ticks;
+  chartGeometry.values={lo,hi};
+  const y=v=>T+(hi-v)/(hi-lo)*ph;
   const path=rows=>rows.map((p,i)=>`${i?'L':'M'}${x(p.date)},${y(p[metric])}`).join(' ');
   const number=n=>Math.abs(n)>=1e8?(n/1e8).toFixed(1)+'亿':Math.abs(n)>=10000?(n/10000).toFixed(1)+'万':new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
   let html=`<defs><clipPath id="projection-clip"><rect x="${L}" y="${T}" width="${pw}" height="${ph}"/></clipPath></defs>`+'<defs><linearGradient id="expected-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9cb47b" stop-opacity=".18"/><stop offset="1" stop-color="#9cb47b" stop-opacity="0"/></linearGradient></defs>';
@@ -85,11 +90,11 @@ function draw(){
   svg.innerHTML=html;const tip=$('#projection-tooltip'),hit=$('#projection-hit');tip.hidden=true;let index=0;
   const show=i=>{index=Math.max(0,Math.min(visible.length-1,i));const p=visible[index],actual=result.actual.find(r=>r.date===p.date);tip.replaceChildren();const title=document.createElement('strong');title.textContent=p.date;tip.append(title);for(const [name,value] of [['理想预期',money(p[metric])],['实际记录',actual?money(actual[metric]):'尚无记录'],['累计投入',money(p.invested)]]){const row=document.createElement('div');row.className='tooltip-line';const a=document.createElement('span'),b=document.createElement('span');a.textContent=name;b.textContent=value;row.append(a,b);tip.append(row);}tip.hidden=false;tip.style.top='8px';tip.style.left=Math.max(0,Math.min(W-tip.offsetWidth,x(p.date)+12))+'px';const cross=$('#p-crosshair');cross.setAttribute('x1',x(p.date));cross.setAttribute('x2',x(p.date));cross.setAttribute('visibility','visible');hit.setAttribute('aria-valuenow',index);hit.setAttribute('aria-valuetext',p.date+'，理想预期 '+money(p[metric]));};
   const hide=()=>{tip.hidden=true;$('#p-crosshair').setAttribute('visibility','hidden');};
-  hit.addEventListener('pointermove',e=>{const r=svg.getBoundingClientRect(),fraction=((e.clientX-r.left)/r.width*W-L)/pw;const desired=Math.round((start+fraction*span-Date.parse(visible[0].date))/DAY);let nearest=desired;for(const p of actual){const i=Math.round((Date.parse(p.date)-Date.parse(visible[0].date))/DAY);if(Math.abs(x(p.date)-(L+fraction*pw))<9){nearest=i;break;}}show(nearest);});hit.addEventListener('pointerleave',hide);hit.addEventListener('focus',()=>show(index));hit.addEventListener('blur',hide);hit.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();show(index+(e.key==='ArrowRight'?1:-1));}});
+  hit.addEventListener('pointermove',e=>{if(dragState)return;const r=svg.getBoundingClientRect(),fraction=((e.clientX-r.left)/r.width*W-L)/pw;const desired=Math.round((start+fraction*span-Date.parse(visible[0].date))/DAY);let nearest=desired;for(const p of actual){const i=Math.round((Date.parse(p.date)-Date.parse(visible[0].date))/DAY);if(Math.abs(x(p.date)-(L+fraction*pw))<9){nearest=i;break;}}show(nearest);});hit.addEventListener('pointerleave',hide);hit.addEventListener('focus',()=>show(index));hit.addEventListener('blur',hide);hit.addEventListener('keydown',e=>{if(['ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();show(index+(e.key==='ArrowRight'?1:-1));}});
 }
 // Listen on the stable SVG so successive trackpad events survive redraws.
 $('#projection-chart').addEventListener('wheel',e=>{
-  if(!chartGeometry)return;
+  if(!chartGeometry||dragState)return;
   const {W,L,pw,bounds,T,ph}=chartGeometry,r=e.currentTarget.getBoundingClientRect();
   const px=(e.clientX-r.left)/r.width*W,py=(e.clientY-r.top)/r.height*320;
   if(px<L||px>L+pw||py<T||py>T+ph)return;
@@ -99,4 +104,31 @@ $('#projection-chart').addEventListener('wheel',e=>{
   viewport=zoomTimeRange(viewport,bounds,(px-L)/pw,Math.max(-200,Math.min(200,delta))*(e.ctrlKey?.01:.002));
   if(!zoomFrame)zoomFrame=requestAnimationFrame(()=>{zoomFrame=null;draw();});
 },{passive:false});
+// Capture on the stable SVG: the hit rectangle is replaced during each redraw.
+const chart=$('#projection-chart');
+const scheduleDraw=()=>{if(!zoomFrame)zoomFrame=requestAnimationFrame(()=>{zoomFrame=null;draw();});};
+chart.addEventListener('pointerdown',e=>{
+  if(e.button!==0||e.isPrimary===false||!chartGeometry)return;
+  const r=chart.getBoundingClientRect(),g=chartGeometry;
+  const x=(e.clientX-r.left)/r.width*g.W,y=(e.clientY-r.top)/r.height*320;
+  if(x<g.L||x>g.L+g.pw||y<g.T||y>g.T+g.ph)return;
+  dragState={id:e.pointerId,x:e.clientX,y:e.clientY,view:{...viewport},values:{...g.values},valueView:valueViewport,
+    width:g.pw/g.W*r.width,height:g.ph/320*r.height,bounds:g.bounds};
+  chart.setPointerCapture(e.pointerId);chart.classList.add('dragging');
+  $('#projection-tooltip').hidden=true;$('#p-crosshair').setAttribute('visibility','hidden');
+  e.preventDefault();
+});
+chart.addEventListener('pointermove',e=>{
+  if(!dragState||e.pointerId!==dragState.id)return;
+  const d=dragState;
+  viewport=panTimeRange(d.view,d.bounds,(e.clientX-d.x)/d.width);
+  valueViewport=e.clientY===d.y?d.valueView:panValueRange(d.values,(e.clientY-d.y)/d.height);
+  scheduleDraw();
+});
+function finishDrag(e){
+  if(!dragState||e.pointerId!==dragState.id)return;
+  dragState=null;chart.classList.remove('dragging');
+  if(chart.hasPointerCapture(e.pointerId))chart.releasePointerCapture(e.pointerId);
+}
+for(const event of ['pointerup','pointercancel','lostpointercapture'])chart.addEventListener(event,finishDrag);
 let resize;window.addEventListener('resize',()=>{clearTimeout(resize);resize=setTimeout(draw,100);});render();
