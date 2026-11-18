@@ -1,7 +1,7 @@
 import {simulate,chartSeries} from './engine.mjs?v=dividend-markers-v1';
 import config from './config.mjs';
 import {chartScale} from './chart-scale.mjs';
-import {createDataApi} from './data.mjs?v=multi-market-v1';
+import {createDataApi} from './data.mjs?v=native-select-v1';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs?v=listing-zero-v1';
 
 const market=createDataApi(config);
@@ -43,7 +43,7 @@ function updatePlanSummary(){
   const day=$('#schedule-value').selectedOptions[0]?.textContent||'';
   const schedule=frequency==='daily'?'每个交易日':frequency==='weekly'?`每${day}`:`每月 ${day}`;
   const amount=Number($('#amount').value);
-  const stock=state.selected.symbol&&$('#stock-search').value===state.selected.name?`买入${state.selected.name}`:'请选择买入标的';
+  const stock=state.selected.symbol&&$('#stock-select').value===state.selected.symbol?`买入${state.selected.name}`:'请选择买入标的';
   $('#plan-summary').textContent=`${schedule}投入 ${Number.isFinite(amount)&&amount>0?new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(amount):'—'} ${markets[state.market].unit}，${stock}`;
 }
 $('#frequency').addEventListener('change',()=>{updateSchedule();updatePlanSummary();});updateSchedule();
@@ -51,71 +51,38 @@ $('#investment-form').addEventListener('input',updatePlanSummary);
 $('#investment-form').addEventListener('change',updatePlanSummary);
 updatePlanSummary();
 
+let stockOptions=[],optionsVersion=0,optionsLoading=false;
 function selectStock(item){
-  state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);
-  $('#stock-kind').textContent=item.kind==='ETF'?' ETF':item.kind==='指数'?'指数':'股票';
-  hideSearch();updatePlanSummary();
+  state.selected=item;$('#stock-select').value=item.symbol;updatePlanSummary();
 }
-function hideSearch(){ clearTimeout(searchTimer);state.searchVersion++;$('#stock-results').hidden=true;$('#stock-search').setAttribute('aria-expanded','false'); }
-let searchPage={query:'',results:[],nextCursor:null,total:0};
-function renderSearch(results){
-  const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
-  const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库${markets[state.market].name} ${searchPage.total} 只 · 当前显示 ${results.length} 个`;box.append(summary);
-  if(!results.length){const p=document.createElement('div');p.className='search-empty';p.textContent='未找到标的，请尝试名称、拼音或代码。';box.append(p);return;}
-  for(const item of results){
-    const button=document.createElement('button');button.type='button';button.role='option';
-    const name=document.createElement('span');name.textContent=item.name;
-    const code=document.createElement('small');code.textContent=displayCode(item.symbol);
-    button.append(name,code);
-    button.addEventListener('click',()=>{
-      clearTimeout(searchTimer);state.searchVersion++;
-      selectStock(item);
-    });box.append(button);
-  }
-  if(searchPage.nextCursor){
-    const more=document.createElement('button');more.type='button';more.className='search-more';more.textContent='加载更多已采集标的';
-    more.addEventListener('click',()=>{more.disabled=true;loadSearch(searchPage.query,true);});box.append(more);
-  }
-}
-let searchTimer;
-async function loadSearch(query,append=false){
-  const version=++state.searchVersion;
+async function loadStockOptions(){
+  const version=++optionsVersion,selectedMarket=state.market,select=$('#stock-select');
+  optionsLoading=true;select.disabled=true;
+  select.replaceChildren(new Option('正在加载'+markets[selectedMarket].name+'股票…',''));
   try{
-    const page=await market.available(query,append?searchPage.nextCursor:null,undefined,state.market);
-    if(version!==state.searchVersion)return;
-    searchPage={query,results:append?[...searchPage.results,...page.results]:page.results,nextCursor:page.nextCursor,total:page.total};
-    renderSearch(searchPage.results);
+    const page=await market.stockOptions(selectedMarket);
+    if(version!==optionsVersion)return;
+    stockOptions=page.results;
+    const options=[new Option(stockOptions.length?'请选择股票':'暂无已采集可用股票','')];
+    for(const item of stockOptions)options.push(new Option(`${item.name}（${displayCode(item.symbol)}）`,item.symbol));
+    select.replaceChildren(...options);
+    const selected=stockOptions.find(item=>item.symbol===state.selected.symbol);
+    if(selected)state.selected=selected;
+    select.value=selected?.symbol||'';
   }catch(error){
-    if(version!==state.searchVersion)return;
-    const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
-    const p=document.createElement('div');p.className='search-empty';p.textContent='标的列表读取失败，请重试。';
-    const retry=document.createElement('button');retry.type='button';retry.textContent='重新加载';retry.addEventListener('click',()=>loadSearch(query));box.append(p,retry);
+    if(version===optionsVersion)select.replaceChildren(new Option('加载失败，请重新选择市场重试',''));
+  }finally{
+    if(version===optionsVersion){optionsLoading=false;select.disabled=state.busy||!stockOptions.length;updatePlanSummary();}
   }
 }
-$('#stock-search').addEventListener('focus',()=>{if(state.config)loadSearch('');});
-$('#stock-search').addEventListener('input',()=>{
-  clearTimeout(searchTimer);
-  state.searchVersion++;
-  $('#stock-code').textContent='输入名称或代码后，从列表选择';
-  searchTimer=setTimeout(()=>loadSearch($('#stock-search').value),280);
+$('#stock-select').addEventListener('change',()=>{
+  const item=stockOptions.find(item=>item.symbol===$('#stock-select').value);
+  if(item)selectStock(item);else{state.selected={symbol:'',name:'',kind:'股票'};updatePlanSummary();}
 });
-$('#stock-search').addEventListener('keydown',e=>{
-  if(e.key==='Escape')hideSearch();
-  if(e.key==='ArrowDown'){e.preventDefault();$('#stock-results button')?.focus();}
-});
-$('#stock-results').addEventListener('keydown',e=>{
-  const buttons=[...$('#stock-results').querySelectorAll('button')];const index=buttons.indexOf(document.activeElement);
-  if(e.key==='ArrowDown'||e.key==='ArrowUp'){e.preventDefault();buttons[(index+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length]?.focus();}
-  if(e.key==='Escape'){hideSearch();$('#stock-search').focus();hideSearch();}
-});
-document.addEventListener('click',e=>{if(!e.target.closest('.stock-wrap'))hideSearch();});
 
 $('#market-select').addEventListener('change',()=>{
-  hideSearch();state.market=$('#market-select').value;state.selected={symbol:'',name:'',kind:'股票'};
+  optionsVersion++;stockOptions=[];state.market=$('#market-select').value;state.selected={symbol:'',name:'',kind:'股票'};
   state.result=null;state.options=null;state.bars=null;state.benchmark=null;
-  searchPage={query:'',results:[],nextCursor:null,total:0};
-  $('#stock-search').value='';$('#stock-code').textContent='请选择'+markets[state.market].name+'标的';
-  $('#stock-search').setAttribute('aria-label','搜索'+markets[state.market].name+'股票');
   $('#benchmark-toggle').checked=false;$('#benchmark-toggle').disabled=state.market!=='cn';
   $('#benchmark-legend').hidden=true;$('#event-legend').hidden=true;$('#export-button').disabled=true;
   $('#hero-value').textContent='—';for(const id of ['stat-invested','stat-assets','stat-rate','stat-count'])$('#'+id).textContent='—';
@@ -124,11 +91,12 @@ $('#market-select').addEventListener('change',()=>{
   $('.amount-control>span:first-child').textContent=currency.sign;$('.amount-control>span:last-child').textContent=currency.unit;
   updatePlanSummary();showMessage('请选择'+currency.name+'股票后开始模拟。');
   $('#chart-state .loader')?.remove();$('#chart-state strong').textContent='请选择标的';
-  loadSearch('');
+  loadStockOptions();
 });
 
 function setBusy(busy){
   state.busy=busy;$('#market-select').disabled=busy;$('#run-button').disabled=busy;$('#run-label').textContent=busy?'正在寻找历史的答案…':'看看历史的答案';
+  $('#stock-select').disabled=busy||optionsLoading||!stockOptions.length;
   $('#export-button').disabled=busy||!state.result;$('#benchmark-toggle').disabled=busy||state.market!=='cn';
   $('#chart-container').setAttribute('aria-busy',String(busy));
 }
@@ -140,7 +108,7 @@ function showMessage(text,error=false){
   if(error){const button=document.createElement('button');button.className='retry-button';button.type='button';button.textContent='重新计算';button.addEventListener('click',()=>state.config?.lastCompleteDate?$('#investment-form').requestSubmit():location.reload());box.append(button);}
 }
 function getOptions(){
-  if(!state.selected.symbol||$('#stock-search').value!==state.selected.name)throw new Error('请从搜索列表选择要回测的证券。');
+  if(!state.selected.symbol||$('#stock-select').value!==state.selected.symbol)throw new Error('请选择要回测的股票。');
   const start=$('#start-date').value,end=$('#end-date').value,amount=Number($('#amount').value);
   refreshDateBounds();validateDateRange(start,end);
   if(!Number.isFinite(amount)||amount<1||amount>100000000)throw new Error('每次投入金额需在 1 元至 1 亿元之间。');
@@ -154,7 +122,7 @@ async function run(){
   if(state.busy)return;
   let options;
   try{options=getOptions();}catch(e){showMessage(e.message,true);return;}
-  setBusy(true);hideSearch();showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
+  setBusy(true);showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
   try{
     const compare=$('#benchmark-toggle').checked;
     let stock,index,coverage,dividends;
@@ -316,10 +284,11 @@ try{
   if(!state.config.popular.some(item=>item.symbol===state.selected.symbol)){
     const item=state.config.popular.find(item=>item.kind!=='指数')||state.config.popular[0];
     if(!item)throw new Error('股票池尚未配置。');
-    state.selected=item;$('#stock-search').value=item.name;$('#stock-code').textContent=displayCode(item.symbol);$('#stock-kind').textContent=item.kind;
+    state.selected=item;
   }
   refreshDateBounds();
-  await run();
+  await loadStockOptions();
+  if(state.selected.symbol)await run();
 }catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
 
 
