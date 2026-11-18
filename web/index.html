@@ -5,7 +5,7 @@
   <meta name="description" content="用真实历史行情，看看一笔笔定投会走向哪里。">
   <meta name="theme-color" content="#f7f8f2"><title>拾日 · 假如当时开始定投</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214435'/%3E%3Cpath d='M16 44V30m11 14V21m11 23V27m11 17V14' stroke='%23d9eb9a' stroke-width='5'/%3E%3C/svg%3E">
-  <link rel="stylesheet" href="/style.css?v=native-select-v1">
+  <link rel="stylesheet" href="/style.css?v=inline-select-v1">
   <link rel="stylesheet" href="/feedback.css?v=080">
 </head>
 <body>
@@ -38,8 +38,10 @@
         </fieldset>
         <fieldset class="plan-group">
           <legend><span class="group-number">03</span>买入标的</legend>
-          <div class="plan-field market-field"><label for="market-select">股票市场</label><select id="market-select"><option value="cn">A股</option><option value="hk">港股</option><option value="us">美股</option></select></div>
-          <div class="plan-field stock-field"><label for="stock-select">股票名称</label><select id="stock-select" required disabled><option value="">正在加载股票…</option></select></div>
+          <div class="schedule-fields">
+            <label class="sr-only" for="market-select">股票类型</label><select id="market-select"><option value="cn">A股</option><option value="hk">港股</option><option value="us">美股</option></select>
+            <label class="sr-only" for="stock-select">股票名称</label><select id="stock-select" required disabled><option value="">正在加载股票…</option></select>
+          </div>
         </fieldset>
         <p class="plan-summary" id="plan-summary" aria-live="polite"></p>
         <button class="run-button" id="run-button" type="submit"><span id="run-label">看看历史的答案</span><span class="run-arrow" aria-hidden="true">→</span></button>
