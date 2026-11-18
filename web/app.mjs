@@ -1,7 +1,7 @@
 import {simulate,chartSeries} from './engine.mjs?v=dividend-markers-v1';
 import config from './config.mjs';
 import {chartScale} from './chart-scale.mjs';
-import {createDataApi} from './data.mjs?v=annual-storage-v1';
+import {createDataApi} from './data.mjs?v=multi-market-v1';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs?v=listing-zero-v1';
 
 const market=createDataApi(config);
@@ -9,8 +9,10 @@ const market=createDataApi(config);
 const $=s=>document.querySelector(s);
 const money=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2,minimumFractionDigits:2});
 const compact=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:0});
-const state={selected:{symbol:'sh600519',name:'贵州茅台',kind:'股票'},config:null,result:null,options:null,bars:null,benchmark:null,metric:'profit',granularity:'month',busy:false,searchVersion:0};
-const displayCode=s=>`${s.slice(2)}.${s.slice(0,2).toUpperCase()}`;
+const state={market:'cn',selected:{symbol:'sh600519',name:'贵州茅台',kind:'股票'},config:null,result:null,options:null,bars:null,benchmark:null,metric:'profit',granularity:'month',busy:false,searchVersion:0};
+const markets={cn:{name:'A股',unit:'元',sign:'¥'},hk:{name:'港股',unit:'港币',sign:'HK$'},us:{name:'美股',unit:'美元',sign:'US$'}};
+const displayCode=s=>state.market==='cn'?`${s.slice(2)}.${s.slice(0,2).toUpperCase()}`:state.market==='hk'?`${s}.HK`:s;
+const resultMoney=()=>markets[state.options?.market||state.market];
 const percent=n=>`${n>=0?'+':''}${(n*100).toFixed(2)}%`;
 const signed=n=>`${n>=0?'+':'−'}${money.format(Math.abs(n))}`;
 
@@ -41,8 +43,8 @@ function updatePlanSummary(){
   const day=$('#schedule-value').selectedOptions[0]?.textContent||'';
   const schedule=frequency==='daily'?'每个交易日':frequency==='weekly'?`每${day}`:`每月 ${day}`;
   const amount=Number($('#amount').value);
-  const stock=$('#stock-search').value===state.selected.name?`买入${state.selected.name}`:'请选择买入标的';
-  $('#plan-summary').textContent=`${schedule}投入 ${Number.isFinite(amount)&&amount>0?new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(amount):'—'} 元，${stock}`;
+  const stock=state.selected.symbol&&$('#stock-search').value===state.selected.name?`买入${state.selected.name}`:'请选择买入标的';
+  $('#plan-summary').textContent=`${schedule}投入 ${Number.isFinite(amount)&&amount>0?new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(amount):'—'} ${markets[state.market].unit}，${stock}`;
 }
 $('#frequency').addEventListener('change',()=>{updateSchedule();updatePlanSummary();});updateSchedule();
 $('#investment-form').addEventListener('input',updatePlanSummary);
@@ -58,7 +60,7 @@ function hideSearch(){ clearTimeout(searchTimer);state.searchVersion++;$('#stock
 let searchPage={query:'',results:[],nextCursor:null,total:0};
 function renderSearch(results){
   const box=$('#stock-results');box.replaceChildren();box.hidden=false;$('#stock-search').setAttribute('aria-expanded','true');
-  const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库非 ST A 股 ${searchPage.total} 只 · 当前显示 ${results.length} 个`;box.append(summary);
+  const summary=document.createElement('div');summary.className='search-summary';summary.textContent=`已入库${markets[state.market].name} ${searchPage.total} 只 · 当前显示 ${results.length} 个`;box.append(summary);
   if(!results.length){const p=document.createElement('div');p.className='search-empty';p.textContent='未找到标的，请尝试名称、拼音或代码。';box.append(p);return;}
   for(const item of results){
     const button=document.createElement('button');button.type='button';button.role='option';
@@ -79,7 +81,7 @@ let searchTimer;
 async function loadSearch(query,append=false){
   const version=++state.searchVersion;
   try{
-    const page=await market.available(query,append?searchPage.nextCursor:null);
+    const page=await market.available(query,append?searchPage.nextCursor:null,undefined,state.market);
     if(version!==state.searchVersion)return;
     searchPage={query,results:append?[...searchPage.results,...page.results]:page.results,nextCursor:page.nextCursor,total:page.total};
     renderSearch(searchPage.results);
@@ -108,9 +110,26 @@ $('#stock-results').addEventListener('keydown',e=>{
 });
 document.addEventListener('click',e=>{if(!e.target.closest('.stock-wrap'))hideSearch();});
 
+$('#market-select').addEventListener('change',()=>{
+  hideSearch();state.market=$('#market-select').value;state.selected={symbol:'',name:'',kind:'股票'};
+  state.result=null;state.options=null;state.bars=null;state.benchmark=null;
+  searchPage={query:'',results:[],nextCursor:null,total:0};
+  $('#stock-search').value='';$('#stock-code').textContent='请选择'+markets[state.market].name+'标的';
+  $('#stock-search').setAttribute('aria-label','搜索'+markets[state.market].name+'股票');
+  $('#benchmark-toggle').checked=false;$('#benchmark-toggle').disabled=state.market!=='cn';
+  $('#benchmark-legend').hidden=true;$('#event-legend').hidden=true;$('#export-button').disabled=true;
+  $('#hero-value').textContent='—';for(const id of ['stat-invested','stat-assets','stat-rate','stat-count'])$('#'+id).textContent='—';
+  $('#chart').replaceChildren();
+  const currency=markets[state.market];
+  $('.amount-control>span:first-child').textContent=currency.sign;$('.amount-control>span:last-child').textContent=currency.unit;
+  updatePlanSummary();showMessage('请选择'+currency.name+'股票后开始模拟。');
+  $('#chart-state .loader')?.remove();$('#chart-state strong').textContent='请选择标的';
+  loadSearch('');
+});
+
 function setBusy(busy){
-  state.busy=busy;$('#run-button').disabled=busy;$('#run-label').textContent=busy?'正在寻找历史的答案…':'看看历史的答案';
-  $('#export-button').disabled=busy||!state.result;$('#benchmark-toggle').disabled=busy;
+  state.busy=busy;$('#market-select').disabled=busy;$('#run-button').disabled=busy;$('#run-label').textContent=busy?'正在寻找历史的答案…':'看看历史的答案';
+  $('#export-button').disabled=busy||!state.result;$('#benchmark-toggle').disabled=busy||state.market!=='cn';
   $('#chart-container').setAttribute('aria-busy',String(busy));
 }
 function showMessage(text,error=false){
@@ -121,11 +140,11 @@ function showMessage(text,error=false){
   if(error){const button=document.createElement('button');button.className='retry-button';button.type='button';button.textContent='重新计算';button.addEventListener('click',()=>state.config?.lastCompleteDate?$('#investment-form').requestSubmit():location.reload());box.append(button);}
 }
 function getOptions(){
-  if($('#stock-search').value!==state.selected.name)throw new Error('请从搜索列表选择要回测的证券。');
+  if(!state.selected.symbol||$('#stock-search').value!==state.selected.name)throw new Error('请从搜索列表选择要回测的证券。');
   const start=$('#start-date').value,end=$('#end-date').value,amount=Number($('#amount').value);
   refreshDateBounds();validateDateRange(start,end);
   if(!Number.isFinite(amount)||amount<1||amount>100000000)throw new Error('每次投入金额需在 1 元至 1 亿元之间。');
-  return {start,end,amount,frequency:$('#frequency').value,weekday:Number($('#schedule-value').value),monthday:Number($('#schedule-value').value),stock:{...state.selected}};
+  return {start,end,amount,market:state.market,frequency:$('#frequency').value,weekday:Number($('#schedule-value').value),monthday:Number($('#schedule-value').value),stock:{...state.selected}};
 }
 const history=(symbol,o)=>symbol===o.stock.symbol&&o.stock.firstDate&&o.end<o.stock.firstDate
   ?Promise.resolve({symbol,adjust:'none',source:'腾讯财经',bars:[],firstDate:null,lastDate:null,fetchedAt:null})
@@ -138,7 +157,9 @@ async function run(){
   setBusy(true);hideSearch();showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
   try{
     const compare=$('#benchmark-toggle').checked;
-    const [stock,index,coverage,dividends]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null),market.dataStatus(options.stock.symbol),market.dividends(options.stock.symbol,options)]);
+    let stock,index,coverage,dividends;
+    if(options.market==='cn')[stock,index,coverage,dividends]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null),market.dataStatus(options.stock.symbol),market.dividends(options.stock.symbol,options)]);
+    else{({stock,coverage,dividends}=await market.foreignSnapshot(options.market,options.stock.symbol,options));index=null;}
     if(options.stock.kind!=='指数'&&coverage?.dividends.status!=='collected')throw new Error('分红数据尚未采集完成，暂不能计算含分红收益。');
     state.dividends=dividends.events||[];
     const result=simulate(options,stock.bars,index?.bars||[],state.dividends);
@@ -164,12 +185,12 @@ $('#benchmark-toggle').addEventListener('change',async()=>{
 function renderResult(){
   const {last,count,firstPurchase,lastDate}=state.result;
   const o=state.options;
-  const hero=$('#hero-value');hero.replaceChildren(document.createTextNode(signed(last.profit)));const unit=document.createElement('span');unit.textContent='元';hero.append(unit);hero.classList.toggle('negative',last.profit<0);
+  const hero=$('#hero-value');hero.replaceChildren(document.createTextNode(signed(last.profit)));const unit=document.createElement('span');unit.textContent=resultMoney().unit;hero.append(unit);hero.classList.toggle('negative',last.profit<0);
   $('#period-years').textContent=`${o.start.slice(0,4)} — ${lastDate.slice(0,4)}`;
   $('#legend-stock').textContent=o.stock.name;
   $('#benchmark-legend').hidden=!$('#benchmark-toggle').checked;
-  $('#stat-invested').textContent='¥ '+compact.format(last.contributed);
-  $('#stat-assets').textContent='¥ '+compact.format(last.assets);
+  $('#stat-invested').textContent=resultMoney().sign+' '+compact.format(last.contributed);
+  $('#stat-assets').textContent=resultMoney().sign+' '+compact.format(last.assets);
   $('#stat-rate').textContent=percent(last.rate);
   $('#stat-count').textContent=`${count} 次`;
   $('#actual-range').textContent=state.bars.bars.length?`实际行情区间：${state.bars.firstDate} 至 ${state.bars.lastDate}；首笔执行日期：${firstPurchase||'尚未执行'}。${state.bars.lastDate<o.end?'结束日无更新行情，按最后一个可用交易日估值。':''}`:'所选区间早于上市日期，不执行定投，也不将这些投入累计至上市日。';
@@ -181,6 +202,7 @@ function renderResult(){
     const dividends=coverage.dividends;
     extra.textContent=`已采集价格口径：${modes||'等待采集'}。${dividends.status==='collected'?`另存有 ${dividends.count} 条分红方案记录（含预案与实施状态）。`:dividends.status==='not_applicable'?'指数不适用分红明细。':'分红明细尚未采集完成。'}现金分红计入资产但不再投资；送转按除权日计入理论持股。`;
   }
+  if(o.market!=='cn')extra.textContent=`${markets[o.market].name}行情按${markets[o.market].unit}计价，不换算人民币。${coverage?.note||''}现金分红不再投资，拆股独立调整持股。`;
   drawChart();
 }
 
@@ -235,20 +257,21 @@ function drawChart(){
     tip.replaceChildren();
     const date=document.createElement('strong');date.textContent=d.date;tip.append(date);
     function line(name,value,className='',parent=tip){const div=document.createElement('div');div.className='tooltip-line '+className;const a=document.createElement('span');a.textContent=name;const b=document.createElement('span');b.textContent=value;div.append(a,b);parent.append(div);}
-    line(metric==='profit'?'当前收益':'当前总资产','¥ '+signed(d[metric]));
+    line(metric==='profit'?'当前收益':'当前总资产',resultMoney().sign+' '+signed(d[metric]));
     if(metric==='profit')line('收益率',percent(d.rate));
-    if(benchmark)line('上证指数','¥ '+signed(d[other]),'benchmark');
-    line('累计投入','¥ '+compact.format(d.contributed),'tooltip-invested');
+    if(benchmark)line('上证指数',resultMoney().sign+' '+signed(d[other]),'benchmark');
+    line('累计投入',resultMoney().sign+' '+compact.format(d.contributed),'tooltip-invested');
     for(const event of d.events||[]){
       const block=document.createElement('div');block.className='tooltip-event';
       const parts=[];
       const number=n=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:4}).format(n);
-      if(event.cashPer10>0)parts.push(`派 ${number(event.cashPer10)} 元`);
+      if(event.shareFactor&&event.shareFactor!==1)parts.push('拆并股比例 '+number(event.shareFactor));
+      if(event.cashPer10>0)parts.push(`派 ${number(event.cashPer10)} ${resultMoney().unit}`);
       if(event.bonusSharesPer10>0)parts.push(`送 ${number(event.bonusSharesPer10)} 股`);
       if(event.transferSharesPer10>0)parts.push(`转增 ${number(event.transferSharesPer10)} 股`);
       line('分红方案',`每 10 ${state.options.stock.kind==='ETF'?'份':'股'}${parts.join('，')}`,'',block);
       const received=[];
-      if(event.cashAmount>0)received.push(`¥ ${money.format(event.cashAmount)}`);
+      if(event.cashAmount>0)received.push(`${resultMoney().sign} ${money.format(event.cashAmount)}`);
       if(event.bonusUnits>0)received.push(`获送 ${number(event.bonusUnits)} 股`);
       if(event.transferUnits>0)received.push(`转增 ${number(event.transferUnits)} 股`);
       line('按持仓数应收',received.join('，'),'',block);
@@ -278,7 +301,7 @@ $('#export-button').addEventListener('click',()=>{
   if(!state.result)return;
   const headers=['日期','累计投入_元','模拟总资产_元','模拟收益_元','累计收益率','上证对比总资产_元','上证对比收益_元','上证对比收益率'];
   const rows=state.result.series.map(d=>[d.date,d.contributed,d.assets,d.profit,d.rate,d.benchmarkAssets,d.benchmarkProfit,d.benchmarkRate].map(x=>typeof x==='number'?x.toFixed(6):x??'').join(','));
-  const blob=new Blob(['\uFEFF'+[headers.join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8'});
+  const blob=new Blob(['\uFEFF'+[headers.map(h=>h.replace('_元','_'+resultMoney().unit)).join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8'});
   const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`拾日_${state.options.stock.symbol}_${state.options.start}_${state.options.end}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('#about-open').addEventListener('click',()=>$('#about-dialog').showModal());
