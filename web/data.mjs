@@ -21,6 +21,7 @@ export function createDataApi(config,fetcher=globalThis.fetch){
   return {
     config:()=>rpc('market_config'),
     ready:()=>rpc('market_ready'),
+    stockOptions:market=>rpc('market_stock_options',{p_market:market}),
     search:(query,signal)=>rpc('market_search',{p_query:query},signal),
     available:(query='',after=null,signal,market='cn')=>market==='cn'?rpc('market_available',{p_query:query,p_after:after},signal):rpc('market_browse',{p_market:market,p_query:query,p_after:after},signal),
     foreignSnapshot:(market,symbol,options)=>rpc('market_foreign_snapshot',{p_market:market,p_symbol:symbol,p_start:options.start,p_end:options.end}),
