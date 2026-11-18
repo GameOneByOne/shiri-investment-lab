@@ -1,6 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createDataApi} from '../web/data.mjs';
+test('market selection is explicit and foreign snapshot never transmits investment settings',async()=>{
+  const calls=[];
+  const api=createDataApi({url:'https://test.supabase.co',key:'sb_publishable_test'},async(url,options)=>{
+    calls.push({name:url.split('/').at(-1),body:JSON.parse(options.body)});return Response.json({});
+  });
+  await api.available('腾讯',null,undefined,'hk');
+  await api.foreignSnapshot('us','AAPL',{start:'2023-01-01',end:'2026-10-28',amount:1000,frequency:'monthly'});
+  assert.deepEqual(calls,[{name:'market_browse',body:{p_market:'hk',p_query:'腾讯',p_after:null}},
+    {name:'market_foreign_snapshot',body:{p_market:'us',p_symbol:'AAPL',p_start:'2023-01-01',p_end:'2026-10-28'}}]);
+});
 
 test('history only transmits security and dates, never amount or schedule',async()=>{
   let request;

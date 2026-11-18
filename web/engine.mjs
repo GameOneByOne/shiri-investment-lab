@@ -43,6 +43,7 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
     .sort((a,b)=>a.exDate.localeCompare(b.exDate));
   const seen=new Set();
   for(const e of actions){
+    if(e.shareFactor!=null&&(!Number.isFinite(e.shareFactor)||e.shareFactor<=0))throw new Error('拆股比例异常。');
     const key=(e.source||'')+':'+e.id;
     if(seen.has(key)||!/^\d{4}-\d{2}-\d{2}$/.test(e.exDate)||e.recordDate&&e.recordDate>=e.exDate)throw new Error('分红记录的日期或标识异常。');
     seen.add(key);
@@ -74,7 +75,8 @@ export function simulate(options,bars,benchmarkBars=[],dividends=[]){
       }
       cash+=entitled*(e.cashPer10??0)/10;
       units+=entitled*((e.bonusSharesPer10??0)+(e.transferSharesPer10??0))/10;
-      if(entitled>0&&[e.cashPer10,e.bonusSharesPer10,e.transferSharesPer10].some(v=>v>0)){
+      units+=entitled*((e.shareFactor??1)-1);
+      if(entitled>0&&([e.cashPer10,e.bonusSharesPer10,e.transferSharesPer10].some(v=>v>0)||(e.shareFactor??1)!==1)){
         events.push({...e,entitledUnits:entitled,cashAmount:entitled*(e.cashPer10??0)/10,
           bonusUnits:entitled*(e.bonusSharesPer10??0)/10,transferUnits:entitled*(e.transferSharesPer10??0)/10});
       }

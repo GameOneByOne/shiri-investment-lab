@@ -61,6 +61,13 @@ test('no-variance single-day scenario is valid and has zero profit',()=>{
 });
 
 const action={id:'cash-1',source:'fixture',status:'implemented',recordDate:'2024-01-05',exDate:'2024-01-08',cashPer10:10,bonusSharesPer10:0,transferSharesPer10:0};
+test('foreign splits and reverse splits preserve value on the ex-date',()=>{
+  for(const shareFactor of [10,.5]){
+    const b=[{date:'2024-01-05',close:10},{date:'2024-01-08',close:10/shareFactor}];
+    const r=simulate({...options,end:'2024-01-08',frequency:'weekly',weekday:5},b,[],[{...action,cashPer10:0,shareFactor}]);
+    assert.equal(r.last.units,10*shareFactor);assert.equal(r.last.assets,100);
+  }
+});
 test('chart retains all entitled actions and their exact benefits across sampling modes',()=>{
   const actions=[action,{...action,id:'shares',cashPer10:0,bonusSharesPer10:3,transferSharesPer10:7,planText:'10送3转7'}];
   const r=simulate(options,bars,[],actions);
