@@ -1,276 +1,186 @@
-import {simulate,chartSeries} from './engine.mjs?v=dividend-markers-v1';
+import {simulate,chartSeries} from './engine.mjs';
+import {combineCnyPlans} from './portfolio.mjs';
+import {createFxApi,convertPlanToCny} from './fx.mjs';
 import config from './config.mjs';
 import {chartScale} from './chart-scale.mjs';
-import {createDataApi} from './data.mjs?v=native-select-v1';
-import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs?v=listing-zero-v1';
+import {createDataApi} from './data.mjs';
+import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs';
 
-const market=createDataApi(config);
-
-const $=s=>document.querySelector(s);
+const api=createDataApi(config),$=s=>document.querySelector(s);
 const money=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2,minimumFractionDigits:2});
-const compact=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:0});
-const state={market:'cn',selected:{symbol:'sh600519',name:'贵州茅台',kind:'股票'},config:null,result:null,options:null,bars:null,benchmark:null,metric:'profit',granularity:'month',busy:false,searchVersion:0};
 const markets={cn:{name:'A股',unit:'元',sign:'¥'},hk:{name:'港股',unit:'港币',sign:'HK$'},us:{name:'美股',unit:'美元',sign:'US$'}};
-const displayCode=s=>state.market==='cn'?`${s.slice(2)}.${s.slice(0,2).toUpperCase()}`:state.market==='hk'?`${s}.HK`:s;
-const resultMoney=()=>markets[state.options?.market||state.market];
-const percent=n=>`${n>=0?'+':''}${(n*100).toFixed(2)}%`;
-const signed=n=>`${n>=0?'+':'−'}${money.format(Math.abs(n))}`;
-
-function refreshDateBounds(){
-  const today=currentMarketDate();
-  for(const id of ['start-date','end-date']){const input=$('#'+id);input.min=firstHistoryDate;input.max=today;}
+const colors=['#48734a','#4779b5','#c17a3d','#995ca5','#168d8d','#cc5974','#80702b','#625ccc'];
+const state={plans:[],results:[],groups:[],market:'cn',metric:'profit',granularity:'month',busy:false,next:1};
+const cache=new Map(),loadRates=createFxApi();
+const signed=n=>(n>=0?'+':'−')+money.format(Math.abs(n));
+const percent=n=>(n>=0?'+':'')+(n*100).toFixed(2)+'%';
+function message(text,error=false){
+ const box=$('#chart-state');box.hidden=false;box.className='chart-state'+(error?' error':'');box.replaceChildren();
+ const title=document.createElement('strong');title.textContent=error?'请检查定投计划':state.busy?'正在读取行情':'添加你的定投计划';
+ if(!state.busy&&!error&&state.results.length)title.textContent='选择要查看的计划';
+ const p=document.createElement('p');p.textContent=text;box.append(title,p);
 }
-refreshDateBounds();
-$('#end-date').value=currentMarketDate();
-for(const id of ['start-date','end-date'])$('#'+id).addEventListener('focus',refreshDateBounds);
+function refreshDateBounds(){for(const input of document.querySelectorAll('.plan-row input[type=date]')){input.min=firstHistoryDate;input.max=currentMarketDate();}}
 window.addEventListener('focus',refreshDateBounds);
 document.addEventListener('visibilitychange',()=>{if(!document.hidden)refreshDateBounds();});
 setInterval(refreshDateBounds,60000);
-
-function updateSchedule(){
-  const frequency=$('#frequency').value;
-  const input=$('#schedule-value');
-  const previous=input.value;
-  input.replaceChildren();
-  input.hidden=frequency==='daily';
-  const values=frequency==='weekly'?['周一','周二','周三','周四','周五']:Array.from({length:31},(_,i)=>`${i+1} 号`);
-  values.forEach((label,i)=>input.add(new Option(label,i+1)));
-  input.value=frequency==='monthly'&&Number(previous)<=31&&Number(previous)>0?previous:'1';
-  input.setAttribute('aria-label',frequency==='weekly'?'每周几':'每月几号');
+function field(row,name){return row.querySelector('[data-field="'+name+'"]');}
+function schedule(row){
+ const frequency=field(row,'frequency').value,select=field(row,'schedule'),previous=select.value;
+ select.hidden=frequency==='daily';select.replaceChildren();
+ const labels=frequency==='weekly'?['周一','周二','周三','周四','周五']:Array.from({length:31},(_,i)=>(i+1)+' 号');
+ labels.forEach((label,i)=>select.add(new Option(label,i+1)));
+ select.value=Number(previous)>0&&Number(previous)<=labels.length?previous:'1';
+ select.setAttribute('aria-label',frequency==='weekly'?'每周几':'每月几号');
 }
-function updatePlanSummary(){
-  const frequency=$('#frequency').value;
-  const day=$('#schedule-value').selectedOptions[0]?.textContent||'';
-  const schedule=frequency==='daily'?'每个交易日':frequency==='weekly'?`每${day}`:`每月 ${day}`;
-  const amount=Number($('#amount').value);
-  const stock=state.selected.symbol&&$('#stock-select').value===state.selected.symbol?`买入${state.selected.name}`:'请选择买入标的';
-  $('#plan-summary').textContent=`${schedule}投入 ${Number.isFinite(amount)&&amount>0?new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(amount):'—'} ${markets[state.market].unit}，${stock}`;
+async function stockOptions(plan){
+ const market=field(plan.row,'market').value,select=field(plan.row,'stock'),version=++plan.version;
+ plan.selected=null;plan.loading=true;select.disabled=true;select.replaceChildren(new Option('正在加载…',''));
+ try{
+  if(!cache.has(market))cache.set(market,api.stockOptions(market).catch(e=>{cache.delete(market);throw e;}));
+  const page=await cache.get(market);
+  if(version!==plan.version)return;
+  plan.stocks=page.results;select.replaceChildren(new Option(page.results.length?'请选择股票 / ETF':'暂无可用标的',''));
+  // Each plan uses its own native select, backed by the same cached catalogue.
+  const fragment=document.createDocumentFragment();
+  for(const item of page.results){const code=market==='cn'?item.symbol.slice(2)+'.'+item.symbol.slice(0,2).toUpperCase():market==='hk'?item.symbol+'.HK':item.symbol;fragment.append(new Option(item.name+'（'+code+'）',item.symbol));}
+  select.append(fragment);
+ }catch(e){if(version===plan.version){plan.stocks=[];select.replaceChildren(new Option('加载失败，切换市场重试',''));message(e.message,true);}}
+ finally{if(version===plan.version){plan.loading=false;select.disabled=state.busy||!plan.stocks?.length;}}
 }
-$('#frequency').addEventListener('change',()=>{updateSchedule();updatePlanSummary();});updateSchedule();
-$('#investment-form').addEventListener('input',updatePlanSummary);
-$('#investment-form').addEventListener('change',updatePlanSummary);
-updatePlanSummary();
-
-let stockOptions=[],optionsVersion=0,optionsLoading=false;
-function selectStock(item){
-  state.selected=item;$('#stock-select').value=item.symbol;updatePlanSummary();
+function addPlan(){
+ const id=state.next++,row=document.createElement('div');row.className='plan-row';row.setAttribute('role','group');row.setAttribute('aria-label','定投计划 '+id);
+ const plan={id,row,version:0,checked:true,color:id<=colors.length?colors[id-1]:`hsl(${((id-1)*137.508)%360} 48% 43%)`,selected:null};
+ row.innerHTML=`<span class="plan-number">计划 ${id}</span>
+ <label class="date-cell">开始日期<input data-field="start" aria-label="计划 ${id} 开始日期" type="date" value="2023-01-01"></label>
+ <span class="plan-date-arrow" aria-hidden="true">→</span>
+ <label class="date-cell">结束日期<input data-field="end" aria-label="计划 ${id} 结束日期" type="date" value="${currentMarketDate()}"></label>
+ <div class="plan-schedule"><select data-field="frequency" aria-label="计划 ${id} 定投周期"><option value="monthly">每月</option><option value="weekly">每周</option><option value="daily">每个交易日</option></select><select data-field="schedule" aria-label="每月几号"></select></div>
+ <label class="plan-amount"><span class="sr-only">计划 ${id} 每次投入金额</span><input data-field="amount" aria-label="计划 ${id} 每次投入金额" type="number" min="1" max="100000000" step="any" placeholder="每次投入" inputmode="decimal"><span data-unit>元</span></label>
+ <select data-field="market" aria-label="计划 ${id} 股票类型"><option value="cn">A股</option><option value="hk">港股</option><option value="us">美股</option></select>
+ <select data-field="stock" aria-label="计划 ${id} 股票名称" disabled><option value="">正在加载…</option></select>
+ <button class="remove-plan" type="button" aria-label="删除计划 ${id}" title="删除计划">×</button>`;
+ state.plans.push(plan);$('#plan-list').append(row);schedule(row);refreshDateBounds();
+ field(row,'frequency').addEventListener('change',()=>schedule(row));
+ field(row,'market').addEventListener('change',()=>{row.querySelector('[data-unit]').textContent=markets[field(row,'market').value].unit;stockOptions(plan);});
+ field(row,'stock').addEventListener('change',()=>{plan.selected=plan.stocks?.find(s=>s.symbol===field(row,'stock').value)||null;});
+ row.querySelector('.remove-plan').addEventListener('click',()=>{plan.version++;state.plans=state.plans.filter(p=>p!==plan);state.results=state.results.filter(p=>p.id!==id);row.remove();if(!state.plans.length)addPlan();renderToggles();renderResult();});
+ row.addEventListener('input',()=>{$('#plan-summary').textContent='修改计划后，点击下方按钮重新计算。';});
+ stockOptions(plan);return plan;
 }
-async function loadStockOptions(){
-  const version=++optionsVersion,selectedMarket=state.market,select=$('#stock-select');
-  optionsLoading=true;select.disabled=true;
-  select.replaceChildren(new Option('正在加载'+markets[selectedMarket].name+'股票…',''));
-  try{
-    const page=await market.stockOptions(selectedMarket);
-    if(version!==optionsVersion)return;
-    stockOptions=page.results;
-    const options=[new Option(stockOptions.length?'请选择股票':'暂无已采集可用股票','')];
-    for(const item of stockOptions)options.push(new Option(`${item.name}（${displayCode(item.symbol)}）`,item.symbol));
-    select.replaceChildren(...options);
-    const selected=stockOptions.find(item=>item.symbol===state.selected.symbol);
-    if(selected)state.selected=selected;
-    select.value=selected?.symbol||'';
-  }catch(error){
-    if(version===optionsVersion)select.replaceChildren(new Option('加载失败，请重新选择市场重试',''));
-  }finally{
-    if(version===optionsVersion){optionsLoading=false;select.disabled=state.busy||!stockOptions.length;updatePlanSummary();}
-  }
+$('#add-plan').addEventListener('click',()=>{const p=addPlan();field(p.row,'amount').focus();});
+function busy(value){
+ state.busy=value;$('#run-button').disabled=value;$('#add-plan').disabled=value;$('#run-label').textContent=value?'正在计算各项计划…':'看看历史的答案';
+ for(const p of state.plans)for(const el of p.row.querySelectorAll('input,select,button'))el.disabled=value||(el===field(p.row,'stock')&&(p.loading||!p.stocks?.length));
+ $('#export-button').disabled=value||!state.results.length;$('#benchmark-toggle').disabled=value||state.results.some(p=>p.options.market!=='cn');
+ $('#chart-container').setAttribute('aria-busy',String(value));
 }
-$('#stock-select').addEventListener('change',()=>{
-  const item=stockOptions.find(item=>item.symbol===$('#stock-select').value);
-  if(item)selectStock(item);else{state.selected={symbol:'',name:'',kind:'股票'};updatePlanSummary();}
-});
-
-$('#market-select').addEventListener('change',()=>{
-  optionsVersion++;stockOptions=[];state.market=$('#market-select').value;state.selected={symbol:'',name:'',kind:'股票'};
-  state.result=null;state.options=null;state.bars=null;state.benchmark=null;
-  $('#benchmark-toggle').checked=false;$('#benchmark-toggle').disabled=state.market!=='cn';
-  $('#benchmark-legend').hidden=true;$('#event-legend').hidden=true;$('#export-button').disabled=true;
-  $('#hero-value').textContent='—';for(const id of ['stat-invested','stat-assets','stat-rate','stat-count'])$('#'+id).textContent='—';
-  $('#chart').replaceChildren();
-  const currency=markets[state.market];
-  $('.amount-control>span:first-child').textContent=currency.sign;$('.amount-control>span:last-child').textContent=currency.unit;
-  updatePlanSummary();showMessage('请选择'+currency.name+'股票后开始模拟。');
-  $('#chart-state .loader')?.remove();$('#chart-state strong').textContent='请选择标的';
-  loadStockOptions();
-});
-
-function setBusy(busy){
-  state.busy=busy;$('#market-select').disabled=busy;$('#run-button').disabled=busy;$('#run-label').textContent=busy?'正在寻找历史的答案…':'看看历史的答案';
-  $('#stock-select').disabled=busy||optionsLoading||!stockOptions.length;
-  $('#export-button').disabled=busy||!state.result;$('#benchmark-toggle').disabled=busy||state.market!=='cn';
-  $('#chart-container').setAttribute('aria-busy',String(busy));
+function optionsFor(plan){
+ const row=plan.row,amount=Number(field(row,'amount').value),start=field(row,'start').value,end=field(row,'end').value;
+ validateDateRange(start,end);
+ if(!plan.selected)throw new Error('请选择股票或 ETF。');
+ if(!Number.isFinite(amount)||amount<1||amount>1e8)throw new Error('每次投入金额需在 1 至 1 亿之间。');
+ return {start,end,amount,market:field(row,'market').value,frequency:field(row,'frequency').value,weekday:Number(field(row,'schedule').value),monthday:Number(field(row,'schedule').value),stock:{...plan.selected}};
 }
-function showMessage(text,error=false){
-  const box=$('#chart-state');box.hidden=false;box.className=`chart-state${error?' error':''}`;box.replaceChildren();
-  if(!error){const spin=document.createElement('span');spin.className='loader';box.append(spin);}
-  const title=document.createElement('strong');title.textContent=error?'这次没能找到答案':'正在翻阅历史';box.append(title);
-  const p=document.createElement('p');p.textContent=text;box.append(p);
-  if(error){const button=document.createElement('button');button.className='retry-button';button.type='button';button.textContent='重新计算';button.addEventListener('click',()=>state.config?.lastCompleteDate?$('#investment-form').requestSubmit():location.reload());box.append(button);}
+async function calculate(plan,options,compare){
+ let stock,coverage,dividends,index=null;
+ if(options.market==='cn'){
+  [stock,coverage,dividends,index]=await Promise.all([
+   options.stock.firstDate&&options.end<options.stock.firstDate?Promise.resolve({bars:[]}):api.history(options.stock.symbol,options),
+   api.dataStatus(options.stock.symbol),api.dividends(options.stock.symbol,options),compare?api.history('sh000001',options):Promise.resolve(null)]);
+ }else({stock,coverage,dividends}=await api.foreignSnapshot(options.market,options.stock.symbol,options));
+ if(options.stock.kind!=='指数'&&coverage?.dividends?.status!=='collected')throw new Error('分红数据尚未采集完成，暂不能计算含分红收益。');
+ return {id:plan.id,name:'计划 '+plan.id+' · '+options.stock.name,color:plan.color,checked:plan.checked,options,result:simulate(options,stock.bars,index?.bars||[],dividends?.events||[])};
 }
-function getOptions(){
-  if(!state.selected.symbol||$('#stock-select').value!==state.selected.symbol)throw new Error('请选择要回测的股票。');
-  const start=$('#start-date').value,end=$('#end-date').value,amount=Number($('#amount').value);
-  refreshDateBounds();validateDateRange(start,end);
-  if(!Number.isFinite(amount)||amount<1||amount>100000000)throw new Error('每次投入金额需在 1 元至 1 亿元之间。');
-  return {start,end,amount,market:state.market,frequency:$('#frequency').value,weekday:Number($('#schedule-value').value),monthday:Number($('#schedule-value').value),stock:{...state.selected}};
-}
-const history=(symbol,o)=>symbol===o.stock.symbol&&o.stock.firstDate&&o.end<o.stock.firstDate
-  ?Promise.resolve({symbol,adjust:'none',source:'腾讯财经',bars:[],firstDate:null,lastDate:null,fetchedAt:null})
-  :market.history(symbol,o);
-
 async function run(){
-  if(state.busy)return;
-  let options;
-  try{options=getOptions();}catch(e){showMessage(e.message,true);return;}
-  setBusy(true);showMessage('正在读取已采集行情，收益曲线将在你的浏览器中计算。');
-  try{
-    const compare=$('#benchmark-toggle').checked;
-    let stock,index,coverage,dividends;
-    if(options.market==='cn')[stock,index,coverage,dividends]=await Promise.all([history(options.stock.symbol,options),compare?history('sh000001',options):Promise.resolve(null),market.dataStatus(options.stock.symbol),market.dividends(options.stock.symbol,options)]);
-    else{({stock,coverage,dividends}=await market.foreignSnapshot(options.market,options.stock.symbol,options));index=null;}
-    if(options.stock.kind!=='指数'&&coverage?.dividends.status!=='collected')throw new Error('分红数据尚未采集完成，暂不能计算含分红收益。');
-    state.dividends=dividends.events||[];
-    const result=simulate(options,stock.bars,index?.bars||[],state.dividends);
-    state.options=options;state.bars=stock;state.benchmark=index;state.result=result;state.coverage=coverage;
-    $('#chart-state').hidden=true;renderResult();
-  }catch(e){showMessage(e.message,true);}
-  finally{setBusy(false);}
+ if(state.busy)return;
+ const jobs=[];
+ try{
+  refreshDateBounds();
+  for(const plan of state.plans){
+   // An untouched row is a draft; a partially entered plan must pass validation.
+   if(!field(plan.row,'amount').value&&!field(plan.row,'stock').value)continue;
+   try{jobs.push({plan,options:optionsFor(plan)});}catch(e){throw new Error('计划 '+plan.id+'：'+e.message);}
+  }
+  if(!jobs.length)throw new Error('请至少填写一条计划的金额和标的。');
+ }catch(e){message(e.message,true);return;}
+ busy(true);message('正在读取已采集行情，收益在当前浏览器中独立计算。');
+ try{
+  if(jobs.some(job=>job.options.market!=='cn'))$('#benchmark-toggle').checked=false;
+  const fx=new Map();
+  for(const market of ['hk','us']){const relevant=jobs.filter(job=>job.options.market===market);if(relevant.length)fx.set(market,await loadRates(market,relevant.map(j=>j.options.start).sort()[0],relevant.map(j=>j.options.end).sort().at(-1)));}
+  const results=[]; // Bound requests to one plan at a time, without contacting collection sources.
+  for(const job of jobs){try{results.push(convertPlanToCny(await calculate(job.plan,job.options,$('#benchmark-toggle').checked),fx.get(job.options.market)||[]));}catch(e){throw new Error('计划 '+job.plan.id+'：'+e.message);}}
+  state.results=results;
+  if(field(state.plans.at(-1).row,'stock').value||field(state.plans.at(-1).row,'amount').value)addPlan();
+  $('#plan-summary').textContent='已计算 '+results.length+' 条独立计划；末行可继续填写新计划。';
+  renderToggles();renderResult();
+ }catch(e){message(e.message,true);}
+ finally{busy(false);}
 }
 $('#investment-form').addEventListener('submit',e=>{e.preventDefault();run();});
-
-$('#benchmark-toggle').addEventListener('change',async()=>{
-  if(!state.result||state.busy)return;
-  const wanted=$('#benchmark-toggle').checked;
-  setBusy(true);
-  try{
-    if(wanted&&!state.benchmark){showMessage('正在补齐上证指数历史，用相同投入日期进行对比。');state.benchmark=await history('sh000001',state.options);}
-    state.result=simulate(state.options,state.bars.bars,wanted?state.benchmark.bars:[],state.dividends);
-    $('#chart-state').hidden=true;renderResult();
-  }catch(e){$('#benchmark-toggle').checked=!wanted;showMessage(e.message,true);}
-  finally{setBusy(false);}
-});
-
+$('#benchmark-toggle').addEventListener('change',()=>{if(state.results.length)run();});
+function renderToggles(){
+ const box=$('#plan-toggles');box.replaceChildren();
+ for(const result of state.results){
+  const label=document.createElement('label'),input=document.createElement('input'),swatch=document.createElement('i');
+  input.type='checkbox';input.checked=result.checked;input.setAttribute('aria-label',result.name+' 参与合计');swatch.style.background=result.color;
+  label.append(input,swatch,document.createTextNode(result.name+'（'+markets[result.options.market].unit+'投入 · 人民币收益）'));box.append(label);
+  input.addEventListener('change',()=>{result.checked=input.checked;const plan=state.plans.find(p=>p.id===result.id);if(plan)plan.checked=input.checked;renderResult();});
+ }
+}
 function renderResult(){
-  const {last,count,firstPurchase,lastDate}=state.result;
-  const o=state.options;
-  const hero=$('#hero-value');hero.replaceChildren(document.createTextNode(signed(last.profit)));const unit=document.createElement('span');unit.textContent=resultMoney().unit;hero.append(unit);hero.classList.toggle('negative',last.profit<0);
-  $('#period-years').textContent=`${o.start.slice(0,4)} — ${lastDate.slice(0,4)}`;
-  $('#legend-stock').textContent=o.stock.name;
-  $('#benchmark-legend').hidden=!$('#benchmark-toggle').checked;
-  $('#stat-invested').textContent=resultMoney().sign+' '+compact.format(last.contributed);
-  $('#stat-assets').textContent=resultMoney().sign+' '+compact.format(last.assets);
-  $('#stat-rate').textContent=percent(last.rate);
-  $('#stat-count').textContent=`${count} 次`;
-  $('#actual-range').textContent=state.bars.bars.length?`实际行情区间：${state.bars.firstDate} 至 ${state.bars.lastDate}；首笔执行日期：${firstPurchase||'尚未执行'}。${state.bars.lastDate<o.end?'结束日无更新行情，按最后一个可用交易日估值。':''}`:'所选区间早于上市日期，不执行定投，也不将这些投入累计至上市日。';
-  const coverage=state.coverage;
-  const extra=$('#data-dimensions');
-  extra.hidden=!coverage;
-  if(coverage){
-    const modes=coverage.prices.map(p=>({none:'不复权',qfq:'前复权',hfq:'后复权'}[p.adjust])).join('、');
-    const dividends=coverage.dividends;
-    extra.textContent=`已采集价格口径：${modes||'等待采集'}。${dividends.status==='collected'?`另存有 ${dividends.count} 条分红方案记录（含预案与实施状态）。`:dividends.status==='not_applicable'?'指数不适用分红明细。':'分红明细尚未采集完成。'}现金分红计入资产但不再投资；送转按除权日计入理论持股。`;
-  }
-  if(o.market!=='cn')extra.textContent=`${markets[o.market].name}行情按${markets[o.market].unit}计价，不换算人民币。${coverage?.note||''}现金分红不再投资，拆股独立调整持股。`;
-  drawChart();
+ state.groups=combineCnyPlans(state.results.filter(p=>p.checked));
+ state.market='cn';
+ const group=state.groups[0],currency=markets.cn;state.group=group;
+ const last=group?.last||{profit:0,assets:0,contributed:0,rate:0};
+ const hero=$('#hero-value');hero.replaceChildren(document.createTextNode(signed(last.profit)));const unit=document.createElement('span');unit.textContent=currency.unit;hero.append(unit);hero.classList.toggle('negative',last.profit<0);
+ $('#period-years').textContent=group?group.series[0].date+' — '+group.last.date:'—';
+ $('#stat-invested').textContent=currency.sign+' '+money.format(last.contributed);$('#stat-assets').textContent=currency.sign+' '+money.format(last.assets);$('#stat-rate').textContent=percent(last.rate);$('#stat-count').textContent=(group?.count||0)+' 次';
+ $('#actual-range').textContent=group?group.members.map(p=>p.name+'：'+p.options.start+' 至 '+p.options.end+'，首笔执行 '+(p.result.firstPurchase||'尚未执行')).join('；')+'。':'';
+ $('#data-dimensions').hidden=false;$('#data-dimensions').textContent='不复权收盘价；现金分红保留为现金，送转和拆并股计入持股。计划结束后按最后可用行情估值并保留至合计区间末尾。各计划曲线及合计均按人民币显示；每笔投入按执行日参考汇率折算为历史成本，资产按估值日汇率折算，收益包含汇率变动。非发布日沿用此前最近一期汇率（最多 7 天），计划结束后保留人民币期末估值。';
+ $('#benchmark-legend').hidden=!$('#benchmark-toggle').checked||state.results.some(p=>p.options.market!=='cn');
+ $('#export-button').disabled=state.busy||!group;
+ if(!group){$('#chart').replaceChildren();$('#chart-tooltip').hidden=true;message(state.results.length?'勾选下方计划，查看曲线和合计。':'填写标的和金额，开始查看收益曲线。');return;}
+ $('#chart-state').hidden=true;drawChart();
 }
-
-for(const button of document.querySelectorAll('[data-metric]'))button.addEventListener('click',()=>{
-  state.metric=button.dataset.metric;for(const b of document.querySelectorAll('[data-metric]')){const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}drawChart();
-});
-for(const button of document.querySelectorAll('[data-granularity]'))button.addEventListener('click',()=>{
-  state.granularity=button.dataset.granularity;for(const b of document.querySelectorAll('[data-granularity]')){const active=b===button;b.classList.toggle('active',active);b.setAttribute('aria-pressed',String(active));}drawChart();
-});
-
+for(const [attribute,key] of [['metric','metric'],['granularity','granularity']])for(const button of document.querySelectorAll('[data-'+attribute+']'))button.addEventListener('click',()=>{state[key]=button.dataset[attribute];for(const other of document.querySelectorAll('[data-'+attribute+']')){other.classList.toggle('active',other===button);other.setAttribute('aria-pressed',String(other===button));}drawChart();});
 function drawChart(){
-  if(!state.result)return;
-  const data=chartSeries(state.result.series,state.granularity),metric=state.metric;
-  const benchmark=$('#benchmark-toggle').checked;
-  const other={profit:'benchmarkProfit',assets:'benchmarkAssets'}[metric];
-  const svg=$('#chart'),W=Math.max(320,svg.clientWidth||840),H=Math.max(230,svg.clientHeight||390);
-  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
-  const L=W<500?57:74,R=17,T=24,B=43,pw=W-L-R,ph=H-T-B;
-  let values=data.flatMap(d=>benchmark?[d[metric],d[other]]:[d[metric]]).filter(Number.isFinite);
-  const {lo,hi,ticks:axisTicks}=chartScale(values);
-  const firstTime=Date.parse(data[0].date),timeSpan=Date.parse(data.at(-1).date)-firstTime;
-  const x=i=>L+(timeSpan?(Date.parse(data[i].date)-firstTime)/timeSpan*pw:pw/2);
-  const y=v=>T+(hi-v)/(hi-lo)*ph;
-  const points=key=>data.map((d,i)=>`${i?'L':'M'}${x(i).toFixed(2)},${y(d[key]).toFixed(2)}`).join(' ');
-  const path=points(metric);
-  const tick=v=>Math.abs(v)>=1e8?`${(v/1e8).toFixed(1)}亿`:Math.abs(v)>=10000?`${(v/10000).toFixed(1)}万`:compact.format(v);
-  let html=`<defs><linearGradient id="chart-fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#91b179" stop-opacity=".25"/><stop offset="100%" stop-color="#91b179" stop-opacity=".015"/></linearGradient><clipPath id="plot-clip"><rect x="${L}" y="${T-4}" width="${pw+1}" height="${ph+8}"/></clipPath></defs>`;
-  for(const v of axisTicks){
-    const yy=y(v),zero=v===0;
-    html+=`<line x1="${L}" x2="${W-R}" y1="${yy}" y2="${yy}" stroke="${zero?'#aebd9d':'#e1e6d9'}" stroke-dasharray="${zero?'4 5':'3 5'}"/><text x="${L-13}" y="${yy+4}" text-anchor="end" fill="${zero?'#63745c':'#9ba58e'}" font-weight="${zero?'600':'400'}" font-size="11" font-family="Arial,sans-serif">${tick(v)}</text>`;
-  }
-  const ticks=[...new Set(Array.from({length:Math.min(5,data.length)},(_,i)=>Math.round(i*(data.length-1)/Math.max(1,Math.min(5,data.length)-1))))];
-  const tickLabels=new Set();
-  for(const i of ticks){const label=state.granularity==='year'?data[i].date.slice(0,4):data[i].date.slice(0,7).replace('-','.');if(tickLabels.has(label))continue;tickLabels.add(label);html+=`<text x="${x(i)}" y="${H-12}" text-anchor="middle" fill="#9ba58e" font-size="11" font-family="Arial,sans-serif">${label}</text>`;}
-  html+=`<g clip-path="url(#plot-clip)"><path d="${path} L${x(data.length-1)},${y(0)} L${x(0)},${y(0)} Z" fill="url(#chart-fill)"/>`;
-  if(benchmark)html+=`<path d="${points(other)}" fill="none" stroke="#b68d62" stroke-width="1.8" stroke-dasharray="6 5" stroke-linecap="round" stroke-linejoin="round"/>`;
-  html+=`<path d="${path}" fill="none" stroke="#48734a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>`;
-  if(data.length===1)html+=`<circle cx="${x(0)}" cy="${y(data[0][metric])}" r="4" fill="#48734a"/>`;
-  html+=`</g><g id="chart-crosshair" visibility="hidden"><line id="crosshair-line" y1="${T}" y2="${H-B}" stroke="#b2c0a0" stroke-dasharray="3 4"/><circle id="crosshair-point" r="4" fill="#48734a" stroke="#f7f8f2" stroke-width="2"/></g><rect id="chart-hit" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" tabindex="0" role="slider" aria-label="浏览曲线日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"/>`;
-  data.forEach((d,i)=>{
-    if(d.events?.length)html+=`<g class="dividend-marker" data-index="${i}" tabindex="0" role="button" aria-label="${d.date} 分红送转，查看方案"><circle cx="${x(i)}" cy="${y(d[metric])}" r="11" fill="transparent"/><circle class="event-dot" cx="${x(i)}" cy="${y(d[metric])}" r="4.5" fill="#b88f65" stroke="#fffef9" stroke-width="2"/></g>`;
-  });
-  svg.innerHTML=html;
-  $('#event-legend').hidden=!data.some(d=>d.events?.length);
-  $('#sampling-note').textContent=state.granularity==='day'?'按日显示':state.granularity==='month'?'按月显示期末值':'按年显示期末值';
-  let selected=0;
-  const tip=$('#chart-tooltip');tip.hidden=true;
-  function hover(i){
-    selected=Math.max(0,Math.min(data.length-1,i));const d=data[selected],xx=x(selected);
-    $('#chart-crosshair').setAttribute('visibility','visible');$('#crosshair-line').setAttribute('x1',xx);$('#crosshair-line').setAttribute('x2',xx);$('#crosshair-point').setAttribute('cx',xx);$('#crosshair-point').setAttribute('cy',y(d[metric]));
-    $('#chart-hit').setAttribute('aria-valuenow',selected);$('#chart-hit').setAttribute('aria-valuetext',`${d.date}，${signed(d[metric])}`);
-    tip.replaceChildren();
-    const date=document.createElement('strong');date.textContent=d.date;tip.append(date);
-    function line(name,value,className='',parent=tip){const div=document.createElement('div');div.className='tooltip-line '+className;const a=document.createElement('span');a.textContent=name;const b=document.createElement('span');b.textContent=value;div.append(a,b);parent.append(div);}
-    line(metric==='profit'?'当前收益':'当前总资产',resultMoney().sign+' '+signed(d[metric]));
-    if(metric==='profit')line('收益率',percent(d.rate));
-    if(benchmark)line('上证指数',resultMoney().sign+' '+signed(d[other]),'benchmark');
-    line('累计投入',resultMoney().sign+' '+compact.format(d.contributed),'tooltip-invested');
-    for(const event of d.events||[]){
-      const block=document.createElement('div');block.className='tooltip-event';
-      const parts=[];
-      const number=n=>new Intl.NumberFormat('zh-CN',{maximumFractionDigits:4}).format(n);
-      if(event.shareFactor&&event.shareFactor!==1)parts.push('拆并股比例 '+number(event.shareFactor));
-      if(event.cashPer10>0)parts.push(`派 ${number(event.cashPer10)} ${resultMoney().unit}`);
-      if(event.bonusSharesPer10>0)parts.push(`送 ${number(event.bonusSharesPer10)} 股`);
-      if(event.transferSharesPer10>0)parts.push(`转增 ${number(event.transferSharesPer10)} 股`);
-      line('分红方案',`每 10 ${state.options.stock.kind==='ETF'?'份':'股'}${parts.join('，')}`,'',block);
-      const received=[];
-      if(event.cashAmount>0)received.push(`${resultMoney().sign} ${money.format(event.cashAmount)}`);
-      if(event.bonusUnits>0)received.push(`获送 ${number(event.bonusUnits)} 股`);
-      if(event.transferUnits>0)received.push(`转增 ${number(event.transferUnits)} 股`);
-      line('按持仓数应收',received.join('，'),'',block);
-      tip.append(block);
-    }
-    tip.hidden=false;
-    const container=$('#chart-container'),left=xx/W*container.clientWidth;
-    tip.style.left=Math.max(0,Math.min(container.clientWidth-tip.offsetWidth,left+12))+'px';
-    tip.style.top='16px';
-  }
-  for(const marker of svg.querySelectorAll('.dividend-marker')){
-    const show=()=>hover(Number(marker.dataset.index));
-    const hide=()=>{tip.hidden=true;$('#chart-crosshair').setAttribute('visibility','hidden');};
-    marker.addEventListener('pointerenter',show);marker.addEventListener('pointerleave',hide);
-    marker.addEventListener('focus',show);marker.addEventListener('blur',hide);
-    marker.addEventListener('click',show);
-    marker.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show();}});
-  }
-  $('#chart-hit').addEventListener('pointermove',e=>{const rect=svg.getBoundingClientRect();const xx=(e.clientX-rect.left)/rect.width*W;hover(data.reduce((best,_,i)=>Math.abs(x(i)-xx)<Math.abs(x(best)-xx)?i:best,0));});
-  $('#chart-hit').addEventListener('pointerleave',()=>{tip.hidden=true;$('#chart-crosshair').setAttribute('visibility','hidden');});
-  $('#chart-hit').addEventListener('focus',()=>hover(selected));
-  $('#chart-hit').addEventListener('blur',()=>{tip.hidden=true;$('#chart-crosshair').setAttribute('visibility','hidden');});
-  $('#chart-hit').addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='ArrowLeft'){e.preventDefault();hover(selected+(e.key==='ArrowRight'?1:-1));}});
+ if(!state.group)return;
+ const group=state.group,metric=state.metric,currency=markets[group.market],data=chartSeries(group.series,state.granularity);
+ const svg=$('#chart'),W=Math.max(320,svg.clientWidth||1000),H=Math.max(230,svg.clientHeight||390),L=70,R=20,T=25,B=40;
+ svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
+ const first=Date.parse(data[0].date),span=Date.parse(data.at(-1).date)-first;
+ const x=date=>L+(span?(Date.parse(date)-first)/span*(W-L-R):(W-L-R)/2);
+ const series=group.members.map(p=>({name:p.name,color:p.color,points:data.map(d=>({date:d.date,value:d.values[p.id]?.[metric]||0,events:d.values[p.id]?.date===d.date?d.values[p.id].events:[]}))}));
+ series.push({name:'所选计划合计',color:'#213f35',total:true,points:data.map(d=>({date:d.date,value:d[metric]}))});
+ if($('#benchmark-toggle').checked&&group.market==='cn')series.push({name:'上证指数',color:'#b68d62',benchmark:true,points:data.map(d=>({date:d.date,value:d[metric==='profit'?'benchmarkProfit':'benchmarkAssets']}))});
+ const scale=chartScale(series.flatMap(s=>s.points.map(p=>p.value))),y=v=>T+(scale.hi-v)/(scale.hi-scale.lo)*(H-T-B);
+ let html='';
+ for(const v of scale.ticks){const label=Math.abs(v)>=1e8?(v/1e8).toFixed(1)+'亿':Math.abs(v)>=1e4?(v/1e4).toFixed(1)+'万':Math.round(v);html+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#dce4d4" stroke-dasharray="3 5"/><text x="${L-12}" y="${y(v)+4}" text-anchor="end" fill="#89967e" font-size="11">${label}</text>`;}
+ for(let i=0;i<Math.min(5,data.length);i++){const d=data[Math.round(i*(data.length-1)/Math.max(1,Math.min(5,data.length)-1))];html+=`<text x="${x(d.date)}" y="${H-10}" text-anchor="middle" fill="#89967e" font-size="11">${d.date.slice(0,7)}</text>`;}
+ for(const s of series){const path=s.points.map((p,i)=>(i?'L':'M')+x(p.date).toFixed(2)+','+y(p.value).toFixed(2)).join(' ');html+=`<path data-curve="${s.total?'total':s.benchmark?'benchmark':'plan'}" d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.total?3:1.8}" stroke-dasharray="${s.total?'7 3':s.benchmark?'4 5':'none'}" stroke-linejoin="round"/>`;if(data.length===1)html+=`<circle cx="${x(data[0].date)}" cy="${y(s.points[0].value)}" r="4" fill="${s.color}"/>`;}
+ html+=`<line id="crosshair" y1="${T}" y2="${H-B}" stroke="#8e9e80" stroke-dasharray="3 4" visibility="hidden"/><rect id="chart-hit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" tabindex="0" role="slider" aria-label="浏览曲线日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"/>`;
+ for(const s of series.filter(s=>!s.total&&!s.benchmark))s.points.forEach((p,i)=>{if(p.events?.length)html+=`<g class="dividend-marker" data-index="${i}" tabindex="0" role="button" aria-label="${p.date} 分红送转，查看方案"><circle cx="${x(p.date)}" cy="${y(p.value)}" r="9" fill="transparent"/><circle cx="${x(p.date)}" cy="${y(p.value)}" r="4" fill="${s.color}" stroke="#fffef9" stroke-width="2"/></g>`;});
+ svg.innerHTML=html;
+ $('#sampling-note').textContent=state.granularity==='day'?'按日显示':state.granularity==='month'?'按月显示期末值':'按年显示期末值';
+ const hit=$('#chart-hit'),tip=$('#chart-tooltip');tip.hidden=true;let selected=0;
+ function hover(index){
+  selected=Math.max(0,Math.min(data.length-1,index));const date=data[selected].date,xx=x(date);$('#crosshair').setAttribute('visibility','visible');$('#crosshair').setAttribute('x1',xx);$('#crosshair').setAttribute('x2',xx);hit.setAttribute('aria-valuenow',selected);hit.setAttribute('aria-valuetext',date);
+  tip.replaceChildren();const title=document.createElement('strong');title.textContent=date;tip.append(title);
+  for(const s of series){const row=document.createElement('div');row.className='tooltip-line';const name=document.createElement('span'),value=document.createElement('span');name.textContent=s.name;name.style.color=s.color;value.textContent=currency.sign+' '+signed(s.points[selected].value);row.append(name,value);tip.append(row);}
+  for(const event of data[selected].events||[]){const row=document.createElement('div');row.className='tooltip-event';row.textContent=event.planName+' · 分红送转：现金 '+money.format(event.cashAmount||0)+' '+currency.unit+'；送转 '+money.format((event.bonusUnits||0)+(event.transferUnits||0))+' 股'+(event.shareFactor&&event.shareFactor!==1?'；拆并股比例 '+event.shareFactor:'');tip.append(row);}
+  tip.hidden=false;const container=$('#chart-container');tip.style.left=Math.max(0,Math.min(container.clientWidth-tip.offsetWidth,xx/W*container.clientWidth+12))+'px';tip.style.top='16px';
+ }
+ hit.addEventListener('pointermove',e=>{const rect=svg.getBoundingClientRect(),px=(e.clientX-rect.left)/rect.width*W;hover(data.reduce((best,d,i)=>Math.abs(x(d.date)-px)<Math.abs(x(data[best].date)-px)?i:best,0));});
+ function hide(){tip.hidden=true;$('#crosshair').setAttribute('visibility','hidden');}
+ for(const marker of svg.querySelectorAll('.dividend-marker')){const show=()=>hover(Number(marker.dataset.index));marker.addEventListener('pointerenter',show);marker.addEventListener('pointerleave',hide);marker.addEventListener('focus',show);marker.addEventListener('blur',hide);marker.addEventListener('click',show);marker.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show();}});}
+ hit.addEventListener('pointerleave',hide);hit.addEventListener('blur',hide);hit.addEventListener('focus',()=>hover(selected));hit.addEventListener('keydown',e=>{if(['ArrowRight','ArrowLeft'].includes(e.key)){e.preventDefault();hover(selected+(e.key==='ArrowRight'?1:-1));}});
 }
-
 $('#export-button').addEventListener('click',()=>{
-  if(!state.result)return;
-  const headers=['日期','累计投入_元','模拟总资产_元','模拟收益_元','累计收益率','上证对比总资产_元','上证对比收益_元','上证对比收益率'];
-  const rows=state.result.series.map(d=>[d.date,d.contributed,d.assets,d.profit,d.rate,d.benchmarkAssets,d.benchmarkProfit,d.benchmarkRate].map(x=>typeof x==='number'?x.toFixed(6):x??'').join(','));
-  const blob=new Blob(['\uFEFF'+[headers.map(h=>h.replace('_元','_'+resultMoney().unit)).join(','),...rows].join('\r\n')],{type:'text/csv;charset=utf-8'});
-  const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=`拾日_${state.options.stock.symbol}_${state.options.start}_${state.options.end}.csv`;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const rows=[['日期','计划','币种','累计投入','总资产','收益','累计收益率','投入原币种','原币累计投入','原币总资产','人民币汇率','汇率日期']];
+ for(const g of state.groups)for(const d of g.series){for(const p of g.members){const v=d.values[p.id];rows.push([d.date,p.name,'人民币',v?.contributed||0,v?.assets||0,v?.profit||0,v?.rate||0,markets[p.options.market].unit,v?.native?.contributed??v?.contributed??0,v?.native?.assets??v?.assets??0,p.options.market==='cn'?1:v?.fxRate??'',v?.fxDate??'']);}rows.push([d.date,'所选计划合计','人民币',d.contributed,d.assets,d.profit,d.rate]);}
+ const escape=v=>'"'+String(v).replaceAll('"','""')+'"';const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(escape).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='拾日_多计划回测.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('#about-open').addEventListener('click',()=>$('#about-dialog').showModal());
 for(const id of ['about-close','about-done'])$('#'+id).addEventListener('click',()=>$('#about-dialog').close());
@@ -278,17 +188,4 @@ $('#about-dialog').addEventListener('click',e=>{if(e.target===$('#about-dialog')
 let resizeTimer;
 window.addEventListener('resize',()=>{clearTimeout(resizeTimer);resizeTimer=setTimeout(drawChart,100);});
 
-try{
-  state.config=await market.config();
-  if(!state.config.lastCompleteDate)throw new Error('行情库尚未完成首次采集，请稍后再试。');
-  if(!state.config.popular.some(item=>item.symbol===state.selected.symbol)){
-    const item=state.config.popular.find(item=>item.kind!=='指数')||state.config.popular[0];
-    if(!item)throw new Error('股票池尚未配置。');
-    state.selected=item;
-  }
-  refreshDateBounds();
-  await loadStockOptions();
-  if(state.selected.symbol)await run();
-}catch(e){showMessage(e.message||'行情服务暂时不可用，请稍后再试。',true);}
-
-
+addPlan();
