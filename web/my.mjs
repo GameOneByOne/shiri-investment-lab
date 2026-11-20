@@ -1,18 +1,40 @@
 import './i18n.mjs?v=bilingual-v1';
+import {portfolioStore as store,accountReady} from './cloud-store.mjs';
+import {syncLabel} from './account.mjs';
 import {project} from './projection.mjs';
 import {chartScale} from './chart-scale.mjs';
 import {panTimeRange,panValueRange} from './chart-pan.mjs';
 import {DAY,zoomTimeRange} from './chart-zoom.mjs';
 import {currentMarketDate} from './dates.mjs';
-const $=s=>document.querySelector(s),today=currentMarketDate(),KEY='shiri.personal-plan.v1';
+const $=s=>document.querySelector(s),today=currentMarketDate();
 const money=n=>'¥ '+new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
 const defaults={start:today,years:5,initial:0,amount:1000,frequency:'monthly',rate:6,rateUnit:'yearly'};
 const metric='assets';
 let plan={...defaults},records=[],result,viewport=null,valueViewport=null,dragState=null,chartGeometry,zoomFrame;
 $('#p-chart-range').addEventListener('change',()=>{viewport=null;valueViewport=null;draw();});
 $('#p-chart-reset').addEventListener('click',()=>{viewport=null;valueViewport=null;draw();});
-try{const stored=JSON.parse(localStorage.getItem(KEY));if(stored){project(stored.plan,stored.records,today);plan=stored.plan;records=stored.records;}}catch{$('#save-status').textContent='未能读取本地数据，当前使用新计划';}
-function save(){try{localStorage.setItem(KEY,JSON.stringify({plan,records}));$('#save-status').textContent='已保存到当前浏览器';}catch{$('#save-status').textContent='浏览器无法保存，刷新后更改会丢失';}}
+const stored=store.read();if(stored){plan=stored.plan;records=stored.records;}
+let displayed=JSON.stringify({plan,records});
+function updateAccount(){
+  const data=store.read()||{plan:{...defaults},records:[]};
+  const serialized=JSON.stringify(data);
+  if(serialized!==displayed){plan=data.plan;records=data.records;displayed=serialized;fillPlan();render();}
+  $('#save-status').textContent=syncLabel();
+  const blocked=!!store.user&&!store.envelope&&store.state!=='empty';
+  for(const form of ['#projection-form','#actual-form'])for(const input of document.querySelectorAll(form+' input,'+form+' select,'+form+' button'))input.disabled=blocked;
+  if(!blocked)$('#actual-form button').disabled=plan.start>(today<result.end?today:result.end);
+}
+store.addEventListener('change',updateAccount);
+window.addEventListener('shiri:language',updateAccount);
+accountReady.then(updateAccount);
+function save(){
+  try{
+    const data={plan,records};
+    if(store.user&&!store.envelope)store.create(data);else store.save(data);
+    displayed=JSON.stringify(data);
+    $('#save-status').textContent=store.user?syncLabel():'已保存到当前浏览器';
+  }catch(error){$('#save-status').textContent='浏览器无法保存，刷新后更改会丢失';throw error;}
+}
 function fillPlan(){for(const [id,key] of Object.entries({'p-start':'start','p-years':'years','p-initial':'initial','p-amount':'amount','p-frequency':'frequency','p-rate':'rate','p-rate-unit':'rateUnit'}))$('#'+id).value=plan[key];}
 fillPlan();$('#a-date').value=today;
 $('#projection-form').addEventListener('submit',e=>{e.preventDefault();try{const candidate={start:$('#p-start').value,years:Number($('#p-years').value),initial:Number($('#p-initial').value),amount:Number($('#p-amount').value),frequency:$('#p-frequency').value,rate:Number($('#p-rate').value),rateUnit:$('#p-rate-unit').value};project(candidate,records,today);plan=candidate;save();render();$('#plan-error').textContent='';}catch(error){$('#plan-error').textContent=error.message;}});
