@@ -1,3 +1,4 @@
+import './i18n.mjs?v=bilingual-v1';
 import config from './config.mjs';
 import {createFeedbackApi} from './feedback-api.mjs';
 const send=createFeedbackApi(config),version='V'+config.version;

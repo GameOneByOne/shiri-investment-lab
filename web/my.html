@@ -2,13 +2,18 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="theme-color" content="#f7f8f2"><title>我的 · 拾日</title>
+  <meta name="theme-color" content="#eeeacd"><title>我的 · 拾日</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214435'/%3E%3Cpath d='M16 44V30m11 14V21m11 23V27m11 17V14' stroke='%23d9eb9a' stroke-width='5'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="/style.css?v=release-080">
   <link rel="stylesheet" href="/my.css?v=chart-pan-v1">
   <link rel="stylesheet" href="/feedback.css?v=080">
+  <link rel="preload" href="/fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/pixel.css?v=pixel-preview-v1">
+  <link rel="stylesheet" href="/pixel-my.css?v=pixel-my-v1">
+  <link rel="stylesheet" href="/i18n.css?v=bilingual-v1">
+  <script type="module" src="/i18n.mjs?v=bilingual-v1"></script>
 </head>
-<body>
+<body class="pixel-theme">
   <header class="site-header">
     <div class="brand-lockup"><a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a><span class="release-badge">内测版<span>V0.8.0</span></span></div>
     <span class="brand-description">一个关于时间与投资的小实验</span>
@@ -17,7 +22,7 @@
   <main class="personal-page planner-page">
     <div class="planner-heading"><div><h1>让期待，有迹可循。</h1><p>写下投资计划，用每一次真实记录，看看自己走到了哪里。</p></div><span class="local-badge" id="save-status">仅保存在当前浏览器</span></div>
     <div class="planner-layout">
-      <section class="planner-card plan-editor" aria-labelledby="plan-title"><h2 id="plan-title">我的投资目标</h2><form id="projection-form">
+      <section class="planner-card plan-editor" aria-labelledby="plan-title"><div class="pixel-kicker" aria-hidden="true"><span>01 / 投资目标</span></div><h2 id="plan-title">我的投资目标</h2><form id="projection-form">
         <p class="planner-sentence">我的投资分布和预期如下：</p>
         <label class="planner-label" for="p-initial">初始资产 <span>元</span></label><input id="p-initial" type="number" min="0" max="1000000000" step="any" value="0" required>
         <div class="planner-row"><div><label for="p-start">计划开始日</label><input id="p-start" type="date" required></div><div><label for="p-years">计划期限</label><select id="p-years"><option value="1">1 年</option><option value="3">3 年</option><option value="5" selected>5 年</option><option value="10">10 年</option><option value="20">20 年</option><option value="30">30 年</option></select></div></div>
@@ -26,6 +31,7 @@
         <p class="planner-note">友情提示：巴菲特老爷子的平均年化为23%</p><button class="run-button" type="submit">保存并更新预期 <span>↗</span></button><p id="plan-error" class="planner-error" role="alert"></p>
       </form></section>
       <section class="planner-card projection-view" aria-labelledby="projection-title">
+        <div class="pixel-kicker" aria-hidden="true"><span>02 / 预期曲线</span></div>
         <div class="projection-title"><div><h2 id="projection-title">未来，正在一点点发生。</h2></div><span id="projection-range"></span></div>
         <div class="forecast-stats"><div><span>期末目标资产</span><strong id="forecast-assets">—</strong></div><div><span>计划累计投入</span><strong id="forecast-invested">—</strong></div><div><span>目标收益总值</span><strong id="forecast-profit">—</strong></div></div>
         <div class="planner-chart-toolbar"><span class="projection-chart-label">资产总值</span><div class="projection-legend"><span><i></i>理想预期</span><span><i class="actual-line"></i>实际记录</span></div></div>
@@ -35,14 +41,14 @@
         <div class="current-progress"><div><h3>当前进度 <small id="progress-date">尚无实际记录</small></h3></div><div class="progress-track"><span id="progress-fill"></span></div><div class="progress-stats"><div><span>最新实际资产</span><strong id="actual-assets">—</strong></div><div><span>同期预期资产</span><strong id="current-target">—</strong></div><div><span>与预期差额</span><strong id="target-gap">—</strong></div></div></div>
       </section>
     </div>
-    <section class="planner-card actual-section" aria-labelledby="actual-title"><div class="record-heading"><div><h2 id="actual-title">记录真实的每一步</h2><p>每天、每月或每年记一次，按你的节奏来。</p></div></div>
+    <section class="planner-card actual-section" aria-labelledby="actual-title"><div class="pixel-kicker" aria-hidden="true"><span>03 / 实际记录</span></div><div class="record-heading"><div><h2 id="actual-title">记录真实的每一步</h2><p>每天、每月或每年记一次，按你的节奏来。</p></div></div>
       <form id="actual-form" class="actual-form"><div><label for="a-date">记录日期</label><input id="a-date" type="date" required></div><div><label for="a-value" id="actual-value-label">账户资产总值（元）</label><input id="a-value" type="number" min="0" max="1000000000000000" step="any" required></div><button class="run-button" type="submit">保存记录 <span>＋</span></button></form>
       <p class="planner-note" id="record-help">填写该日的账户资产总值。同一天再次保存会更新该条记录。</p><p id="record-error" class="planner-error" role="alert"></p>
       <div class="record-table-wrap"><table class="record-table"><thead><tr><th>记录日期</th><th>实际资产</th><th>实际收益</th><th>与同期预期差额</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="records-body"></tbody></table></div><p id="records-empty" class="records-empty">还没有实际记录。保存计划后，即可从计划开始日记录账户资产。</p>
     </section>
     <details class="projection-method"><summary>计算方式与数据保存</summary><p>预期收益率按有效周期收益率换算为日复利：每日为 1 天，每月为 365/12 天，每年为 365 天。开始日计入初始资产与首笔投入，后续先计算当天收益，再于日末投入；每日投入包含周末，月/年投入沿用开始日的日号。</p><p>实际记录直接使用你录入的账户资产总值；已有的历史收益率记录仍按原计算口径展示。实际曲线只连接已记录点，连线不代表未记录日的真实估值。收益＝资产－初始资产－计划累计追加投入；如果实际投入与计划不同，请先调整计划再比较。</p><p>修改计划会重新计算所有对比结果，已保存的实际记录会保留；不兼容的日期会提示，需先修改或删除相关记录。计划和记录只保存在当前浏览器，不跨设备同步。这里展示的是假设推算。</p></details>
   </main>
-  <script type="module" src="/my.mjs?v=chart-pan-v1"></script>
-  <script type="module" src="/feedback.mjs?v=080"></script>
+  <script type="module" src="/my.mjs?v=bilingual-v1"></script>
+  <script type="module" src="/feedback.mjs?v=bilingual-v1"></script>
 </body>
 </html>
