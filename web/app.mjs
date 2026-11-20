@@ -1,3 +1,4 @@
+import {t} from './i18n.mjs?v=bilingual-v1';
 import {simulate,chartSeries} from './engine.mjs';
 import {combineCnyPlans} from './portfolio.mjs';
 import {createFxApi,convertPlanToCny} from './fx.mjs';
@@ -9,7 +10,7 @@ import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs'
 const api=createDataApi(config),$=s=>document.querySelector(s);
 const money=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2,minimumFractionDigits:2});
 const markets={cn:{name:'A股',unit:'元',sign:'¥'},hk:{name:'港股',unit:'港币',sign:'HK$'},us:{name:'美股',unit:'美元',sign:'US$'}};
-const colors=['#48734a','#4779b5','#c17a3d','#995ca5','#168d8d','#cc5974','#80702b','#625ccc'];
+const colors=['#527348','#b47741','#4f7997','#8f6899','#3d8d7e','#bd6176','#8b822e','#6864a1'];
 const state={plans:[],results:[],groups:[],market:'cn',metric:'profit',granularity:'month',busy:false,next:1};
 const cache=new Map(),loadRates=createFxApi();
 const signed=n=>(n>=0?'+':'−')+money.format(Math.abs(n));
@@ -151,17 +152,18 @@ function drawChart(){
  const svg=$('#chart'),W=Math.max(320,svg.clientWidth||1000),H=Math.max(230,svg.clientHeight||390),L=70,R=20,T=25,B=40;
  svg.setAttribute('viewBox',`0 0 ${W} ${H}`);
  const first=Date.parse(data[0].date),span=Date.parse(data.at(-1).date)-first;
- const x=date=>L+(span?(Date.parse(date)-first)/span*(W-L-R):(W-L-R)/2);
+ const pixel=v=>Math.round(v/2)*2;
+ const x=date=>pixel(L+(span?(Date.parse(date)-first)/span*(W-L-R):(W-L-R)/2));
  const series=group.members.map(p=>({name:p.name,color:p.color,points:data.map(d=>({date:d.date,value:d.values[p.id]?.[metric]||0,events:d.values[p.id]?.date===d.date?d.values[p.id].events:[]}))}));
- series.push({name:'所选计划合计',color:'#213f35',total:true,points:data.map(d=>({date:d.date,value:d[metric]}))});
+ series.push({name:'所选计划合计',color:'#293f32',total:true,points:data.map(d=>({date:d.date,value:d[metric]}))});
  if($('#benchmark-toggle').checked&&group.market==='cn')series.push({name:'上证指数',color:'#b68d62',benchmark:true,points:data.map(d=>({date:d.date,value:d[metric==='profit'?'benchmarkProfit':'benchmarkAssets']}))});
- const scale=chartScale(series.flatMap(s=>s.points.map(p=>p.value))),y=v=>T+(scale.hi-v)/(scale.hi-scale.lo)*(H-T-B);
+ const scale=chartScale(series.flatMap(s=>s.points.map(p=>p.value))),y=v=>pixel(T+(scale.hi-v)/(scale.hi-scale.lo)*(H-T-B));
  let html='';
- for(const v of scale.ticks){const label=Math.abs(v)>=1e8?(v/1e8).toFixed(1)+'亿':Math.abs(v)>=1e4?(v/1e4).toFixed(1)+'万':Math.round(v);html+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#dce4d4" stroke-dasharray="3 5"/><text x="${L-12}" y="${y(v)+4}" text-anchor="end" fill="#89967e" font-size="11">${label}</text>`;}
- for(let i=0;i<Math.min(5,data.length);i++){const d=data[Math.round(i*(data.length-1)/Math.max(1,Math.min(5,data.length)-1))];html+=`<text x="${x(d.date)}" y="${H-10}" text-anchor="middle" fill="#89967e" font-size="11">${d.date.slice(0,7)}</text>`;}
- for(const s of series){const path=s.points.map((p,i)=>(i?'L':'M')+x(p.date).toFixed(2)+','+y(p.value).toFixed(2)).join(' ');html+=`<path data-curve="${s.total?'total':s.benchmark?'benchmark':'plan'}" d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.total?3:1.8}" stroke-dasharray="${s.total?'7 3':s.benchmark?'4 5':'none'}" stroke-linejoin="round"/>`;if(data.length===1)html+=`<circle cx="${x(data[0].date)}" cy="${y(s.points[0].value)}" r="4" fill="${s.color}"/>`;}
- html+=`<line id="crosshair" y1="${T}" y2="${H-B}" stroke="#8e9e80" stroke-dasharray="3 4" visibility="hidden"/><rect id="chart-hit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" tabindex="0" role="slider" aria-label="浏览曲线日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"/>`;
- for(const s of series.filter(s=>!s.total&&!s.benchmark))s.points.forEach((p,i)=>{if(p.events?.length)html+=`<g class="dividend-marker" data-index="${i}" tabindex="0" role="button" aria-label="${p.date} 分红送转，查看方案"><circle cx="${x(p.date)}" cy="${y(p.value)}" r="9" fill="transparent"/><circle cx="${x(p.date)}" cy="${y(p.value)}" r="4" fill="${s.color}" stroke="#fffef9" stroke-width="2"/></g>`;});
+ for(const v of scale.ticks){const label=Math.abs(v)>=1e8?(v/1e8).toFixed(1)+'亿':Math.abs(v)>=1e4?(v/1e4).toFixed(1)+'万':Math.round(v);html+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="#b8c29c" stroke-dasharray="2 6"/><text x="${L-12}" y="${y(v)+4}" text-anchor="end" fill="#7b8e61" font-size="12">${label}</text>`;}
+ for(let i=0;i<Math.min(5,data.length);i++){const d=data[Math.round(i*(data.length-1)/Math.max(1,Math.min(5,data.length)-1))];html+=`<text x="${x(d.date)}" y="${H-10}" text-anchor="middle" fill="#7b8e61" font-size="12">${d.date.slice(0,7)}</text>`;}
+ for(const s of series){const path=s.points.map((p,i)=>(i?'L':'M')+x(p.date).toFixed(2)+','+y(p.value).toFixed(2)).join(' ');html+=`<path data-curve="${s.total?'total':s.benchmark?'benchmark':'plan'}" d="${path}" fill="none" stroke="${s.color}" stroke-width="${s.total?4:2}" stroke-dasharray="${s.total?'8 4':s.benchmark?'4 4':'none'}" stroke-linejoin="miter" stroke-linecap="square"/>`;if(data.length===1)html+=`<rect x="${x(data[0].date)-4}" y="${y(s.points[0].value)-4}" width="8" height="8" fill="${s.color}"/>`;}
+ html+=`<line id="crosshair" y1="${T}" y2="${H-B}" stroke="#6f8455" stroke-width="2" stroke-dasharray="4 4" visibility="hidden"/><rect id="chart-hit" x="${L}" y="${T}" width="${W-L-R}" height="${H-T-B}" fill="transparent" tabindex="0" role="slider" aria-label="浏览曲线日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${data.length-1}" aria-valuenow="0"/>`;
+ for(const s of series.filter(s=>!s.total&&!s.benchmark))s.points.forEach((p,i)=>{if(p.events?.length)html+=`<g class="dividend-marker" data-index="${i}" tabindex="0" role="button" aria-label="${p.date} 分红送转，查看方案"><rect x="${x(p.date)-10}" y="${y(p.value)-10}" width="20" height="20" fill="transparent"/><rect x="${x(p.date)-4}" y="${y(p.value)-4}" width="8" height="8" fill="${s.color}" stroke="#faf6de" stroke-width="2"/></g>`;});
  svg.innerHTML=html;
  $('#sampling-note').textContent=state.granularity==='day'?'按日显示':state.granularity==='month'?'按月显示期末值':'按年显示期末值';
  const hit=$('#chart-hit'),tip=$('#chart-tooltip');tip.hidden=true;let selected=0;
@@ -180,7 +182,7 @@ function drawChart(){
 $('#export-button').addEventListener('click',()=>{
  const rows=[['日期','计划','币种','累计投入','总资产','收益','累计收益率','投入原币种','原币累计投入','原币总资产','人民币汇率','汇率日期']];
  for(const g of state.groups)for(const d of g.series){for(const p of g.members){const v=d.values[p.id];rows.push([d.date,p.name,'人民币',v?.contributed||0,v?.assets||0,v?.profit||0,v?.rate||0,markets[p.options.market].unit,v?.native?.contributed??v?.contributed??0,v?.native?.assets??v?.assets??0,p.options.market==='cn'?1:v?.fxRate??'',v?.fxDate??'']);}rows.push([d.date,'所选计划合计','人民币',d.contributed,d.assets,d.profit,d.rate]);}
- const escape=v=>'"'+String(v).replaceAll('"','""')+'"';const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(escape).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='拾日_多计划回测.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const escape=v=>'"'+String(v).replaceAll('"','""')+'"';const blob=new Blob(['\uFEFF'+rows.map(r=>r.map(value=>escape(typeof value==='string'?t(value):value)).join(',')).join('\r\n')],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=t('拾日_多计划回测.csv');a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
 });
 $('#about-open').addEventListener('click',()=>$('#about-dialog').showModal());
 for(const id of ['about-close','about-done'])$('#'+id).addEventListener('click',()=>$('#about-dialog').close());

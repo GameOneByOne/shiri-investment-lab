@@ -1,0 +1,28 @@
+.language-switcher{display:inline-flex;align-items:center;gap:0;border:1px solid #91a178;border-radius:4px;background:#f6f8ed;padding:2px;line-height:1.6;flex-shrink:0;font-size:12px}
+.language-switcher button{font:inherit;line-height:1.6;border:0;padding:3px 9px;background:transparent;color:#71815e;border-radius:2px;cursor:pointer;min-width:36px}
+.language-switcher button[aria-pressed=true]{background:#365b3c;color:#fff9dd}
+.language-switcher button:focus-visible{outline:2px dashed #ad683d;outline-offset:3px}
+.site-header .language-switcher{position:absolute;right:5%;bottom:10px}
+.site-header .about-button{right:calc(5% + 120px);top:auto;bottom:14px}
+.pixel-theme .language-switcher{font-family:var(--pixel-font);border:2px solid #728459;border-radius:0;background:#f6f2d5;padding:0;box-shadow:2px 2px 0 #b7c392}
+.pixel-theme .language-switcher button{border-radius:0;padding:1px 8px;min-width:34px;font-size:12px;line-height:2}
+.pixel-theme .site-header .language-switcher{right:max(32px,calc((100% - 1360px)/2));bottom:10px}
+.pixel-theme .site-header .about-button{right:max(140px,calc((100% - 1360px)/2 + 110px));top:auto;bottom:12px}
+html[lang=en] .brand-en{display:none}
+html[lang=en] .pixel-theme .plan-row{grid-template-columns:56px 122px 12px 122px minmax(168px,1fr) minmax(104px,.8fr) 96px minmax(172px,1.6fr) 24px;min-width:1060px}
+html[lang=en] .pixel-theme .plan-amount input::placeholder{font-size:12px}
+html[lang=en] .pixel-theme .story-panel h1{font-size:24px;line-height:1.8}
+html[lang=en] .pixel-theme .plan-toggles label{flex-wrap:wrap}
+@media(max-width:760px){
+ .site-header{height:auto;min-height:130px;padding-bottom:42px}
+ .site-header .language-switcher{right:20px;bottom:10px}
+ .site-header .about-button{right:auto;left:20px;bottom:14px;font-size:10px}
+ .pixel-theme .site-header{min-height:154px;padding-bottom:48px;grid-template-columns:minmax(0,1fr) auto}
+ .pixel-theme .site-header .brand-lockup{grid-column:1/3;grid-row:1}
+ .pixel-theme .site-header .main-nav{grid-column:2;grid-row:2;justify-self:end}
+ .pixel-theme .site-header .brand-description{grid-column:1;grid-row:2;max-width:190px;font-size:12px;text-align:left}
+ .pixel-theme .site-header .language-switcher{right:20px;bottom:10px}
+ .pixel-theme .site-header .about-button{left:20px;right:auto;bottom:14px;font-size:12px}
+ html[lang=en] .pixel-theme .chart-toolbar{flex-wrap:wrap}
+ html[lang=en] .pixel-theme .period-stamp{max-width:100px}
+}
