@@ -1,4 +1,4 @@
-import './i18n.mjs?v=bilingual-v1';
+import './i18n.mjs?v=bilingual-v2';
 import {portfolioStore as store,accountReady} from './cloud-store.mjs';
 import {syncLabel} from './account.mjs';
 import {project} from './projection.mjs';
@@ -60,7 +60,7 @@ function render(){
   $('#a-date').min=min;$('#a-date').max=max;$('#actual-form button').disabled=min>max;
   $('#p-chart-range option[value=recorded]').disabled=!latest;
   if(!latest)$('#p-chart-range').value='full';
-  $('#records-empty').hidden=records.length>0;$('#chart-note').textContent=latest?'实际线仅连接记录点，未记录的未来留白。':'添加实际记录后，第二条曲线会从计划开始日延伸至最新记录日。';
+  $('#records-empty').hidden=records.length>0;
   const body=$('#records-body');body.replaceChildren();
   for(const record of [...records].reverse()){
     const row=result.actual.find(p=>p.date===record.date),target=result.expected.find(p=>p.date===record.date),tr=document.createElement('tr');

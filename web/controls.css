@@ -1,0 +1,22 @@
+/* Shared readable control type: former 12px controls become 15px. */
+.pixel-theme :is(button:not(.remove-plan):not(.dialog-close):not(.account-close),input[type=text],input[type=email],input[type=number],input[type=date],select,textarea,label),
+.pixel-theme :is(.main-nav a,.date-cell,.plan-number,.plan-amount>span,.suffix-input>span,.local-badge,.release-badge,.release-badge>span,.forecast-stats span,.progress-stats span,.metric-label,.stats-grid>div>span,.projection-chart-label,.projection-legend,.projection-range-control,.pixel-kicker,#run-label,.feedback-types span){font-size:15px!important}
+.pixel-theme :is(input[type=text],input[type=email],input[type=number],input[type=date],select){line-height:1.5!important}
+.pixel-theme :is(.plan-row select,.plan-amount,.plan-editor input,.plan-editor select,.actual-form input,.projection-range-control select){height:48px!important}
+.pixel-theme .plan-row select option{font-size:15px!important}
+@supports(appearance:base-select){.pixel-theme .plan-row select::picker(select){font-size:15px!important}}
+.pixel-theme :is(.run-button,.add-plan){min-height:48px;line-height:1.75!important}
+.pixel-theme :is(.plan-editor .run-button,.actual-form .run-button){height:auto;min-height:48px}
+.pixel-theme .plan-row{grid-template-columns:72px 158px 15px 158px minmax(190px,1.1fr) minmax(135px,.8fr) 90px minmax(220px,1.5fr) 28px;min-width:1260px}
+.pixel-theme .date-cell input{min-height:32px}
+.pixel-theme .suffix-input>span{top:12px}
+.pixel-theme .language-switcher button{min-width:40px;padding:1px 8px;line-height:1.75}
+.pixel-theme .site-header .language-switcher{right:max(88px,calc((100% - 1360px)/2 + 56px))}
+.pixel-theme .site-header .about-button{right:max(208px,calc((100% - 1360px)/2 + 178px))}
+.pixel-theme .account-popover{min-width:260px}
+.pixel-theme .account-popover a{font-size:15px}
+@media(max-width:760px){
+ .pixel-theme .site-header .language-switcher{right:76px}
+ .pixel-theme .site-header .about-button{right:auto;left:20px}
+ .pixel-theme .site-header{min-height:170px;padding-bottom:52px}
+}
