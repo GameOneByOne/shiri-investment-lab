@@ -1,5 +1,5 @@
 import {portfolioStore as store,accountReady} from './cloud-store.mjs';
-import {t} from './i18n.mjs?v=bilingual-v2';
+import {t} from './i18n.mjs?v=auth-unified-v1';
 
 const el=(tag,attrs={},text)=>{const node=document.createElement(tag);for(const [k,v]of Object.entries(attrs))node.setAttribute(k,v);if(text)node.textContent=text;return node;};
 const header=document.querySelector('.site-header');
@@ -38,13 +38,13 @@ function authError(error){
   if(error.status===429)return t('操作过于频繁，请稍后再试。');
   return t('操作失败，请检查网络、邮箱或验证码后重试。');
 }
-let authMode='login',sentEmail='',resendAt=0;
-async function auth(mode){
+let sentEmail='',resendAt=0;
+async function auth(){
   await accountReady;
   if(!store.client){dialogShell('云同步暂不可用');dialog.append(el('p',{},t('请检查网络后刷新页面。')));dialog.showModal();return;}
-  authMode=mode;sentEmail='';
-  dialogShell(mode==='register'?'注册':'登录');
-  const intro=el('p',{},t(mode==='register'?'使用邮箱验证码创建账号，登录后可开启云同步。':'使用邮箱验证码登录，恢复你的云端计划。'));
+  sentEmail='';
+  dialogShell('注册/登陆');
+  const intro=el('p',{},t('使用邮箱验证码继续，未注册的邮箱将在验证后自动创建账号。'));
   const form=el('form'),label=el('label',{for:'account-email'},t('邮箱')),email=el('input',{id:'account-email',type:'email',autocomplete:'email',required:'',placeholder:'name@example.com'});
   const send=el('button',{type:'submit'},t('获取验证码'));
   const codeLabel=el('label',{for:'account-code'},t('邮箱验证码')),code=el('input',{id:'account-code',type:'text',inputmode:'numeric',autocomplete:'one-time-code',pattern:'[0-9]{6,10}',minlength:'6',maxlength:'10'});
@@ -63,14 +63,14 @@ async function auth(mode){
     if(Date.now()<resendAt){status.textContent=t('请等待一分钟后再次获取验证码。');return;}
     send.disabled=true;
     try{
-      const {error}=await store.client.auth.signInWithOtp({email:email.value.trim(),options:{shouldCreateUser:authMode==='register',emailRedirectTo:location.origin+'/my.html'}});
+      const {error}=await store.client.auth.signInWithOtp({email:email.value.trim(),options:{shouldCreateUser:true,emailRedirectTo:location.origin+'/my.html'}});
       if(error)throw error;
       sentEmail=email.value.trim();resendAt=Date.now()+60000;email.readOnly=true;
       codeGroup.hidden=false;code.required=true;send.textContent=t('重新发送验证码');
       status.textContent=t('请查看邮箱中的验证码；如果收到登录链接，也可以点击链接继续。');code.focus();
     }catch(error){status.textContent=authError(error);}finally{send.disabled=false;}
   });
-  dialog.append(intro,form,codeGroup,button(mode==='register'?'已有账号？登录':'还没有账号？注册',()=>auth(mode==='register'?'login':'register'),'account-text-button'));
+  dialog.append(intro,form,codeGroup);
   dialog.showModal();email.focus();
 }
 async function logout(){
@@ -92,7 +92,7 @@ function render(){
   if(shownUser!==store.user?.id){if(dialog.open)close();shownUser=store.user?.id;}
   popover.replaceChildren();avatar.classList.toggle('is-authenticated',!!store.user);
   if(!store.user){
-    popover.append(button('注册',()=>auth('register')),button('登录',()=>auth('login')));
+    popover.append(button('注册/登陆',()=>auth()));
     return;
   }
   popover.append(el('strong',{class:'account-email','data-i18n-skip':''},store.user.email||''));

@@ -1,0 +1,53 @@
+/* Optional visual layer. Select Classic Green to compare with the original UI.
+   Revert by removing this stylesheet, theme.mjs and their two HTML includes. */
+:root[data-theme=ink]{--theme-paper:#f5f2e9;--theme-card:#fffdf6;--theme-well:#ede9de;--theme-ink:#223149;--theme-muted:#526176;--theme-border:#758196;--theme-primary:#223149;--theme-on-primary:#fffaf0;--theme-accent:#a86617;--theme-shadow:#c0b9a5;--theme-grid:#d9d8d0;color-scheme:light}
+:root[data-theme=blue]{--theme-paper:#edf2f8;--theme-card:#fcfdff;--theme-well:#e4ecf8;--theme-ink:#1e2c42;--theme-muted:#4e6079;--theme-border:#788daa;--theme-primary:#2452b8;--theme-on-primary:#fff;--theme-accent:#175d7c;--theme-shadow:#aebed5;--theme-grid:#d3deed;color-scheme:light}
+:root[data-theme=night]{--theme-paper:#141c29;--theme-card:#202b3b;--theme-well:#2b384c;--theme-ink:#f1f4fa;--theme-muted:#bdc9dc;--theme-border:#8190a5;--theme-primary:#f0bd60;--theme-on-primary:#1c2431;--theme-accent:#69d4e2;--theme-shadow:#080e17;--theme-grid:#3a485c;color-scheme:dark}
+html[data-theme]:not([data-theme=green]){--paper:var(--theme-paper);--ink:var(--theme-ink);--muted:var(--theme-muted);--green:var(--theme-primary);--line:var(--theme-border)}
+html[data-theme]:not([data-theme=green]) .pixel-theme{background:var(--theme-paper);color:var(--theme-ink)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(.site-header,.story-panel,.result-panel,.planner-card,.account-popover,dialog){background:var(--theme-card);border-color:var(--theme-ink);box-shadow:5px 5px 0 var(--theme-shadow)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(h1,h2,h3,.brand,.hero-value,.forecast-stats strong,.progress-stats strong,.stats-grid strong,.record-table td){color:var(--theme-ink)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(label,.pixel-kicker,.metric-label,.projection-chart-label,.projection-legend,.projection-range-control,.current-progress small,.forecast-stats span,.progress-stats span,.stats-grid span,.record-table th,.planner-note,.projection-method,.method-details,.chart-bottom,.fx-note,.plan-number,.date-cell,.plan-amount>span,.suffix-input>span,.about-button,.main-nav a,.brand-en,.release-badge>span,.chart-zoom-hint,.sampling-note,.record-heading p,.records-empty){color:var(--theme-muted)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(input:not([type=checkbox]),select,textarea,.plan-amount,.forecast-stats>div,.progress-stats>div,.stats-grid>div,.release-badge,.local-badge,.metric-tabs button,.granularity-tabs button,.language-switcher,.account-popover button,.account-popover a){background-color:var(--theme-well);color:var(--theme-ink);border-color:var(--theme-border);box-shadow:2px 2px 0 var(--theme-shadow)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(input,select,textarea){accent-color:var(--theme-primary)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(.run-button,.main-nav a[aria-current=page],.language-switcher button[aria-pressed=true],.metric-tabs button.active,.granularity-tabs button.active,.feedback-submit){background:var(--theme-primary);color:var(--theme-on-primary);border-color:var(--theme-ink);box-shadow:3px 3px 0 var(--theme-shadow)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(.add-plan,#p-chart-reset,.account-dialog button,.feedback-launch){background:var(--theme-well);color:var(--theme-ink);border-color:var(--theme-border);box-shadow:3px 3px 0 var(--theme-shadow)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(.question,.record-delete,.info-dot,.remove-plan){color:var(--theme-accent)}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(.pixel-kicker,.planner-heading,.planner-chart-toolbar,.current-progress,.chart-toolbar,.plan-toggles,.record-table td,.record-table th,.plan-row,.chart-bottom){border-color:var(--theme-border)}
+html[data-theme]:not([data-theme=green]) .brand-mark i,html[data-theme]:not([data-theme=green]) .pixel-kicker>span:first-child:before{background:var(--theme-primary);box-shadow:none}
+html[data-theme]:not([data-theme=green]) .pixel-theme :is(.chart-tooltip,.projection-tooltip){background:var(--theme-card);color:var(--theme-ink);border-color:var(--theme-border)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .account-avatar{background:var(--theme-well);color:var(--theme-primary);border-color:var(--theme-primary)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .chart-state{background:var(--theme-card);color:var(--theme-ink)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .chart-state :is(strong,p){color:var(--theme-muted)}
+html[data-theme]:not([data-theme=green]) .pixel-theme svg text{fill:var(--theme-muted)!important}
+html[data-theme]:not([data-theme=green]) .pixel-theme .projection-chart-wrap{background-color:var(--theme-card);background-image:none;border-color:var(--theme-border);box-shadow:inset 2px 2px 0 var(--theme-shadow)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .site-header .main-nav a{color:var(--theme-muted)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .site-header .main-nav a[aria-current=page]{background:var(--theme-primary);color:var(--theme-on-primary)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .projection-title>span{color:var(--theme-muted)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .projection-legend i{border-color:var(--theme-primary)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .projection-legend i.actual-line{border-color:var(--theme-accent)}
+html[data-theme]:not([data-theme=green]) .pixel-theme svg line:not([id]){stroke:var(--theme-grid)}
+html[data-theme]:not([data-theme=green]) .pixel-theme svg path[stroke="#527348"]{stroke:var(--theme-primary)}
+html[data-theme]:not([data-theme=green]) .pixel-theme svg path[stroke="#b47741"]{stroke:var(--theme-accent)}
+html[data-theme]:not([data-theme=green]) .pixel-theme svg rect[fill="#b47741"]{fill:var(--theme-accent);stroke:var(--theme-card)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-positive{color:#b53d3d}
+html[data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-negative{color:#287044}
+html[lang=en][data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-positive{color:#287044}
+html[lang=en][data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-negative{color:#b53d3d}
+html[data-theme=night] .pixel-theme .record-table td.gap-positive{color:#ff9292}
+html[data-theme=night] .pixel-theme .record-table td.gap-negative{color:#78dfaa}
+html[lang=en][data-theme=night] .pixel-theme .record-table td.gap-positive{color:#78dfaa}
+html[lang=en][data-theme=night] .pixel-theme .record-table td.gap-negative{color:#ff9292}
+.pixel-theme .display-settings{position:absolute;right:max(88px,calc((100% - 1360px)/2 + 56px));bottom:8px;display:flex;align-items:center;gap:12px}
+.pixel-theme .display-settings .language-switcher{position:static!important;flex-shrink:0}
+.pixel-theme .theme-picker{display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:15px}
+.pixel-theme .theme-picker select{height:40px;max-width:180px;padding:4px 8px;border:2px solid var(--theme-border,#728459);background-color:var(--theme-well,#f6f2d5);color:var(--theme-ink,#304a34);font:inherit;box-shadow:2px 2px 0 var(--theme-shadow,#b7c392);border-radius:0}
+.pixel-theme .site-header .about-button{right:max(440px,calc((100% - 1360px)/2 + 408px))}
+@supports(appearance:base-select){
+ html[data-theme]:not([data-theme=green]) .pixel-theme select::picker(select){background:var(--theme-card);color:var(--theme-ink);border-color:var(--theme-border);box-shadow:4px 4px 0 var(--theme-shadow)}
+ html[data-theme]:not([data-theme=green]) .pixel-theme select option{color:var(--theme-ink);border-color:var(--theme-border)}
+ html[data-theme]:not([data-theme=green]) .pixel-theme select option:checked{background:var(--theme-well)}
+ html[data-theme]:not([data-theme=green]) .pixel-theme select option:hover{background:var(--theme-primary);color:var(--theme-on-primary)}
+}
+@media(max-width:760px){.pixel-theme .display-settings{right:76px;gap:8px}.pixel-theme .theme-picker{gap:4px}.pixel-theme .theme-picker select{max-width:152px}.pixel-theme .site-header .about-button{left:20px;right:auto;bottom:62px}.pixel-theme .site-header{min-height:190px}}
+@media(max-width:480px){.pixel-theme .theme-picker>span{display:none}.pixel-theme .theme-picker select{max-width:130px}.pixel-theme .display-settings{gap:8px}.pixel-theme .theme-picker select{font-size:12px!important}}

@@ -1,6 +1,6 @@
-import './i18n.mjs?v=bilingual-v2';
+import './i18n.mjs?v=auth-unified-v1';
 import {portfolioStore as store,accountReady} from './cloud-store.mjs';
-import {syncLabel} from './account.mjs';
+import {syncLabel} from './account.mjs?v=auth-unified-v1';
 import {project} from './projection.mjs';
 import {chartScale} from './chart-scale.mjs';
 import {panTimeRange,panValueRange} from './chart-pan.mjs';
