@@ -1,4 +1,4 @@
-import {t} from './i18n.mjs?v=bilingual-v2';
+import {t} from './i18n.mjs?v=auth-unified-v1';
 import {simulate,chartSeries} from './engine.mjs';
 import {combineCnyPlans} from './portfolio.mjs';
 import {createFxApi,convertPlanToCny} from './fx.mjs';

@@ -1,5 +1,7 @@
 // UI-only translations: security names, input values and stored financial data are never changed.
 const messages={
+ "注册/登陆":"Sign up / Log in",
+ "使用邮箱验证码继续，未注册的邮箱将在验证后自动创建账号。":"Continue with an email code. New email addresses will get an account after verification.",
  "合并后的计划与记录日期不兼容，请选择完整保留哪一份。两份原始数据会保留在备份中。":"The merged plan and record dates are incompatible. Choose one complete version. Both originals will be kept in the backup.",
  "账号与云同步":"Account and cloud sync",
  "注册":"Sign up",
