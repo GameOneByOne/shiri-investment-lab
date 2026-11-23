@@ -1,4 +1,4 @@
-import {t} from './i18n.mjs?v=bilingual-v1';
+import {t} from './i18n.mjs?v=bilingual-v2';
 import {simulate,chartSeries} from './engine.mjs';
 import {combineCnyPlans} from './portfolio.mjs';
 import {createFxApi,convertPlanToCny} from './fx.mjs';
@@ -66,12 +66,11 @@ function addPlan(){
  field(row,'market').addEventListener('change',()=>{row.querySelector('[data-unit]').textContent=markets[field(row,'market').value].unit;stockOptions(plan);});
  field(row,'stock').addEventListener('change',()=>{plan.selected=plan.stocks?.find(s=>s.symbol===field(row,'stock').value)||null;});
  row.querySelector('.remove-plan').addEventListener('click',()=>{plan.version++;state.plans=state.plans.filter(p=>p!==plan);state.results=state.results.filter(p=>p.id!==id);row.remove();if(!state.plans.length)addPlan();renderToggles();renderResult();});
- row.addEventListener('input',()=>{$('#plan-summary').textContent='修改计划后，点击下方按钮重新计算。';});
  stockOptions(plan);return plan;
 }
 $('#add-plan').addEventListener('click',()=>{const p=addPlan();field(p.row,'amount').focus();});
 function busy(value){
- state.busy=value;$('#run-button').disabled=value;$('#add-plan').disabled=value;$('#run-label').textContent=value?'正在计算各项计划…':'看看历史的答案';
+ state.busy=value;$('#run-button').disabled=value;$('#add-plan').disabled=value;$('#run-label').textContent=value?'正在计算各项计划…':'那么现在会？';
  for(const p of state.plans)for(const el of p.row.querySelectorAll('input,select,button'))el.disabled=value||(el===field(p.row,'stock')&&(p.loading||!p.stocks?.length));
  $('#export-button').disabled=value||!state.results.length;$('#benchmark-toggle').disabled=value||state.results.some(p=>p.options.market!=='cn');
  $('#chart-container').setAttribute('aria-busy',String(value));
@@ -114,7 +113,6 @@ async function run(){
   for(const job of jobs){try{results.push(convertPlanToCny(await calculate(job.plan,job.options,$('#benchmark-toggle').checked),fx.get(job.options.market)||[]));}catch(e){throw new Error('计划 '+job.plan.id+'：'+e.message);}}
   state.results=results;
   if(field(state.plans.at(-1).row,'stock').value||field(state.plans.at(-1).row,'amount').value)addPlan();
-  $('#plan-summary').textContent='已计算 '+results.length+' 条独立计划；末行可继续填写新计划。';
   renderToggles();renderResult();
  }catch(e){message(e.message,true);}
  finally{busy(false);}
