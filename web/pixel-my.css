@@ -48,3 +48,39 @@
 .pixel-theme .record-table td.gap-negative{color:#36734a}
 html[lang="en"] .pixel-theme .record-table td.gap-positive{color:#36734a}
 html[lang="en"] .pixel-theme .record-table td.gap-negative{color:#b53d3d}
+
+/* The chart uses named parts so recoloring does not require a redraw. */
+.pixel-theme #projection-chart .projection-grid{stroke:var(--theme-grid,#e2e6da)}
+.pixel-theme #projection-chart :is(.projection-zero,#p-crosshair){stroke:var(--theme-border,#a9b59b)}
+.pixel-theme #projection-chart .projection-area{fill:var(--theme-primary,#dce5a0)}
+.pixel-theme #projection-chart .projection-forecast-line{stroke:var(--theme-primary,#527348)}
+.pixel-theme #projection-chart .projection-forecast-point{fill:var(--theme-primary,#527348)}
+.pixel-theme #projection-chart .projection-actual-line{stroke:var(--theme-accent,#b47741)}
+.pixel-theme #projection-chart .projection-actual-point{
+  fill:var(--theme-accent,#b47741);
+  stroke:var(--theme-card,#faf6de);
+}
+
+html[data-theme]:not([data-theme=green]) .pixel-theme .progress-track{
+  background:var(--theme-well);
+  border-color:var(--theme-border);
+  box-shadow:2px 2px 0 var(--theme-shadow);
+}
+.pixel-theme .progress-track>span{
+  background:repeating-linear-gradient(90deg,var(--theme-primary,#7f9a58) 0 6px,var(--theme-border,#a0b574) 6px 8px);
+}
+.pixel-theme .record-table-wrap{
+  background:var(--theme-card,#f3f1d7);
+  border-color:var(--theme-border,#a1b081);
+}
+.pixel-theme .record-table th,
+.pixel-theme .record-table tbody tr:nth-child(even){
+  background:var(--theme-well,#eeefce);
+}
+.pixel-theme .record-table th{background:var(--theme-well,#e1e7b8)}
+.pixel-theme .record-delete{
+  background:var(--theme-well,#efe1bf);
+  border-color:var(--theme-border,#b99c73);
+}
+.pixel-theme .projection-method{border-color:var(--theme-border,#aab98a)}
+.pixel-theme .projection-method summary{color:var(--theme-muted,#69824f)}

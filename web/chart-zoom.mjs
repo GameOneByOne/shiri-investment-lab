@@ -7,7 +7,14 @@ export function zoomTimeRange(view,bounds,fraction,delta){
   const anchor=Math.max(0,Math.min(1,fraction));
   const span=view.end-view.start;
   const nextSpan=Math.max(Math.min(7*DAY,total),Math.min(total,span*Math.exp(delta)));
+  if(nextSpan===total)return {...bounds};
   const time=view.start+span*anchor;
   const start=Math.max(bounds.start,Math.min(bounds.end-nextSpan,time-nextSpan*anchor));
   return {start,end:start+nextSpan};
+}
+
+export function zoomChartView(timeView,valueView,bounds,fraction,delta){
+  const time=zoomTimeRange(timeView,bounds,fraction,delta);
+  const restored=delta>0&&time.start===bounds.start&&time.end===bounds.end;
+  return {time,values:restored?null:valueView};
 }
