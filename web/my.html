@@ -1,6 +1,23 @@
 <!doctype html>
 <html lang="zh-CN">
 <head>
+  <script id="theme-init">
+    (() => {
+      let theme = 'ink';
+      try {
+        const saved = localStorage.getItem('shiri.ui.theme');
+        if (['ink', 'blue', 'night', 'green'].includes(saved)) theme = saved;
+      } catch {}
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
+  <style id="theme-canvas">
+    html[data-theme="ink"]{background:#f5f2e9;color-scheme:light}
+    html[data-theme="blue"]{background:#edf2f8;color-scheme:light}
+    html[data-theme="night"]{background:#141c29;color-scheme:dark}
+    html[data-theme="green"]{background:#eeeacd;color-scheme:light}
+  </style>
+
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#eeeacd"><title>我的 · 拾日</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%23214435'/%3E%3Cpath d='M16 44V30m11 14V21m11 23V27m11 17V14' stroke='%23d9eb9a' stroke-width='5'/%3E%3C/svg%3E">
@@ -9,18 +26,18 @@
   <link rel="stylesheet" href="/feedback.css?v=080">
   <link rel="preload" href="/fonts/fusion-pixel-12px.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/pixel.css?v=pixel-preview-v1">
-  <link rel="stylesheet" href="/pixel-my.css?v=gap-colors-v2">
+  <link rel="stylesheet" href="/pixel-my.css?v=themed-panels-v1">
   <link rel="stylesheet" href="/i18n.css?v=auth-unified-v1">
   <script type="module" src="/i18n.mjs?v=auth-unified-v1"></script>
   <link rel="stylesheet" href="/account.css?v=cloud-v1">
   <script type="module" src="/account.mjs?v=auth-unified-v1"></script>
   <link rel="stylesheet" href="/controls.css?v=readable-v1">
-  <link rel="stylesheet" href="/themes.css?v=preview-1">
+  <link rel="stylesheet" href="/themes.css?v=themed-panels-v1">
   <script type="module" src="/theme.mjs?v=preview-1"></script>
 </head>
 <body class="pixel-theme">
   <header class="site-header">
-    <div class="brand-lockup"><a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a><span class="release-badge">内测版<span>V0.9.0</span></span></div>
+    <div class="brand-lockup"><a class="brand" href="/" aria-label="拾日首页"><span class="brand-mark"><i></i><i></i><i></i><i></i></span>拾日</a><span class="release-badge">内测版<span>V0.9.2</span></span></div>
     <nav class="main-nav" aria-label="主导航"><a href="/">首页</a><a href="/my.html" aria-current="page">我的</a></nav>
   </header>
   <main class="personal-page planner-page">
@@ -50,7 +67,7 @@
     </section>
     <details class="projection-method"><summary>计算方式与数据保存</summary><p>预期收益率按有效周期收益率换算为日复利：每日为 1 天，每月为 365/12 天，每年为 365 天。开始日计入初始资产与首笔投入，后续先计算当天收益，再于日末投入；每日投入包含周末，月/年投入沿用开始日的日号。</p><p>实际记录直接使用你录入的账户资产总值；已有的历史收益率记录仍按原计算口径展示。实际曲线只连接已记录点，连线不代表未记录日的真实估值。收益＝资产－初始资产－计划累计追加投入；如果实际投入与计划不同，请先调整计划再比较。</p><p>修改计划会重新计算所有对比结果，已保存的实际记录会保留；不兼容的日期会提示，需先修改或删除相关记录。未登录时，计划和记录保存在当前浏览器；登录后可开启跨设备云同步。这里展示的是假设推算。</p></details>
   </main>
-  <script type="module" src="/my.mjs?v=auth-unified-v1"></script>
+  <script type="module" src="/my.mjs?v=restore-full-view"></script>
   <script type="module" src="/feedback.mjs?v=auth-unified-v1"></script>
 </body>
 </html>

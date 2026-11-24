@@ -27,9 +27,6 @@ html[data-theme]:not([data-theme=green]) .pixel-theme .projection-title>span{col
 html[data-theme]:not([data-theme=green]) .pixel-theme .projection-legend i{border-color:var(--theme-primary)}
 html[data-theme]:not([data-theme=green]) .pixel-theme .projection-legend i.actual-line{border-color:var(--theme-accent)}
 html[data-theme]:not([data-theme=green]) .pixel-theme svg line:not([id]){stroke:var(--theme-grid)}
-html[data-theme]:not([data-theme=green]) .pixel-theme svg path[stroke="#527348"]{stroke:var(--theme-primary)}
-html[data-theme]:not([data-theme=green]) .pixel-theme svg path[stroke="#b47741"]{stroke:var(--theme-accent)}
-html[data-theme]:not([data-theme=green]) .pixel-theme svg rect[fill="#b47741"]{fill:var(--theme-accent);stroke:var(--theme-card)}
 html[data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-positive{color:#b53d3d}
 html[data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-negative{color:#287044}
 html[lang=en][data-theme]:not([data-theme=green]) .pixel-theme .record-table td.gap-positive{color:#287044}

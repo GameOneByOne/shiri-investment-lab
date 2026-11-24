@@ -4,7 +4,7 @@ import {syncLabel} from './account.mjs?v=auth-unified-v1';
 import {project} from './projection.mjs';
 import {chartScale} from './chart-scale.mjs';
 import {panTimeRange,panValueRange} from './chart-pan.mjs';
-import {DAY,zoomTimeRange} from './chart-zoom.mjs';
+import {DAY,zoomChartView} from './chart-zoom.mjs?v=restore-full-view';
 import {currentMarketDate} from './dates.mjs';
 const $=s=>document.querySelector(s),today=currentMarketDate();
 const money=n=>'¥ '+new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
@@ -104,13 +104,13 @@ function draw(){
   const y=v=>pixel(T+(hi-v)/(hi-lo)*ph);
   const path=rows=>rows.map((p,i)=>`${i?'L':'M'}${x(p.date)},${y(p[metric])}`).join(' ');
   const number=n=>Math.abs(n)>=1e8?(n/1e8).toFixed(1)+'亿':Math.abs(n)>=10000?(n/10000).toFixed(1)+'万':new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2}).format(n);
-  let html=`<defs><clipPath id="projection-clip"><rect x="${L}" y="${T}" width="${pw}" height="${ph}"/></clipPath></defs>`+'<defs><linearGradient id="expected-fill" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9cb47b" stop-opacity=".18"/><stop offset="1" stop-color="#9cb47b" stop-opacity="0"/></linearGradient></defs>';
-  for(const v of ticks)html+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="${v===0?'#b2bfa4':'#e2e6da'}" stroke-dasharray="2 6"/><text x="${L-10}" y="${y(v)+4}" text-anchor="end" fill="#909c84" font-size="12">${number(v)}</text>`;
-  for(let i=0;i<(span?4:1);i++){const t=Math.round((start+span*i/3)/DAY)*DAY;const d=new Date(t).toISOString().slice(0,10);html+=`<text x="${span?L+pw*i/3:L+pw/2}" y="${H-10}" text-anchor="middle" fill="#909c84" font-size="12">${span<=120*86400000?d.slice(5):d.slice(0,7)}</text>`;}
-  html+=`<g clip-path="url(#projection-clip)"><path d="${path(expected)} L${x(expected.at(-1).date)},${y(0)} L${x(expected[0].date)},${y(0)} Z" fill="#dce5a0" fill-opacity=".25"/><path d="${path(expected)}" fill="none" stroke="#527348" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="square" stroke-linejoin="miter"/>`;
-  if(expected.length===1)html+=`<rect x="${x(plan.start)-4}" y="${y(expected[0][metric])-4}" width="8" height="8" fill="#527348"/>`;
-  if(actual.length){html+=`<path d="${path(actual)}" fill="none" stroke="#b47741" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>`;for(const p of actual)html+=`<rect x="${x(p.date)-4}" y="${y(p[metric])-4}" width="8" height="8" fill="#b47741" stroke="#faf6de" stroke-width="2"/>`;}
-  html+=`</g><line id="p-crosshair" y1="${T}" y2="${H-B}" stroke="#a9b59b" stroke-dasharray="2 6" visibility="hidden"/><rect id="projection-hit" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" tabindex="0" role="slider" aria-label="浏览预期日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${visible.length-1}" aria-valuenow="0"/>`;
+  let html=`<defs><clipPath id="projection-clip"><rect x="${L}" y="${T}" width="${pw}" height="${ph}"/></clipPath></defs>`;
+  for(const v of ticks)html+=`<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" class="${v===0?'projection-zero':'projection-grid'}" stroke-dasharray="2 6"/><text x="${L-10}" y="${y(v)+4}" text-anchor="end" font-size="12">${number(v)}</text>`;
+  for(let i=0;i<(span?4:1);i++){const t=Math.round((start+span*i/3)/DAY)*DAY;const d=new Date(t).toISOString().slice(0,10);html+=`<text x="${span?L+pw*i/3:L+pw/2}" y="${H-10}" text-anchor="middle" font-size="12">${span<=120*86400000?d.slice(5):d.slice(0,7)}</text>`;}
+  html+=`<g clip-path="url(#projection-clip)"><path d="${path(expected)} L${x(expected.at(-1).date)},${y(0)} L${x(expected[0].date)},${y(0)} Z" class="projection-area" fill-opacity=".25"/><path d="${path(expected)}" fill="none" class="projection-forecast-line" stroke-width="2" stroke-dasharray="6 4" stroke-linecap="square" stroke-linejoin="miter"/>`;
+  if(expected.length===1)html+=`<rect x="${x(plan.start)-4}" y="${y(expected[0][metric])-4}" width="8" height="8" class="projection-forecast-point"/>`;
+  if(actual.length){html+=`<path d="${path(actual)}" fill="none" class="projection-actual-line" stroke-width="2" stroke-linecap="square" stroke-linejoin="miter"/>`;for(const p of actual)html+=`<rect x="${x(p.date)-4}" y="${y(p[metric])-4}" width="8" height="8" class="projection-actual-point" stroke-width="2"/>`;}
+  html+=`</g><line id="p-crosshair" y1="${T}" y2="${H-B}" stroke-dasharray="2 6" visibility="hidden"/><rect id="projection-hit" x="${L}" y="${T}" width="${pw}" height="${ph}" fill="transparent" tabindex="0" role="slider" aria-label="浏览预期日期，使用左右方向键" aria-valuemin="0" aria-valuemax="${visible.length-1}" aria-valuenow="0"/>`;
   svg.innerHTML=html;const tip=$('#projection-tooltip'),hit=$('#projection-hit');tip.hidden=true;let index=0;
   const show=i=>{index=Math.max(0,Math.min(visible.length-1,i));const p=visible[index],actual=result.actual.find(r=>r.date===p.date);tip.replaceChildren();const title=document.createElement('strong');title.textContent=p.date;tip.append(title);for(const [name,value] of [['理想预期',money(p[metric])],['实际记录',actual?money(actual[metric]):'尚无记录'],['累计投入',money(p.invested)]]){const row=document.createElement('div');row.className='tooltip-line';const a=document.createElement('span'),b=document.createElement('span');a.textContent=name;b.textContent=value;row.append(a,b);tip.append(row);}tip.hidden=false;tip.style.top='8px';tip.style.left=Math.max(0,Math.min(W-tip.offsetWidth,x(p.date)+12))+'px';const cross=$('#p-crosshair');cross.setAttribute('x1',x(p.date));cross.setAttribute('x2',x(p.date));cross.setAttribute('visibility','visible');hit.setAttribute('aria-valuenow',index);hit.setAttribute('aria-valuetext',p.date+'，理想预期 '+money(p[metric]));};
   const hide=()=>{tip.hidden=true;$('#p-crosshair').setAttribute('visibility','hidden');};
@@ -125,8 +125,11 @@ $('#projection-chart').addEventListener('wheel',e=>{
   const delta=e.deltaY*(e.deltaMode===1?16:e.deltaMode===2?320:1);
   if(!delta)return;
   e.preventDefault();
-  viewport=zoomTimeRange(viewport,bounds,(px-L)/pw,Math.max(-200,Math.min(200,delta))*(e.ctrlKey?.01:.002));
-  if(!zoomFrame)zoomFrame=requestAnimationFrame(()=>{zoomFrame=null;draw();});
+  const zoom=Math.max(-200,Math.min(200,delta))*(e.ctrlKey?.01:.002);
+  const next=zoomChartView(viewport,valueViewport,bounds,(px-L)/pw,zoom);
+  viewport=next.time;
+  valueViewport=next.values;
+  scheduleDraw();
 },{passive:false});
 // Capture on the stable SVG: the hit rectangle is replaced during each redraw.
 const chart=$('#projection-chart');
