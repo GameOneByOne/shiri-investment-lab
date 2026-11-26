@@ -1,4 +1,4 @@
-import './i18n.mjs?v=auth-unified-v1';
+import './i18n.mjs?v=chart-currency-v1';
 import config from './config.mjs';
 const $=id=>document.getElementById(id);
 const number=value=>Number(value??0).toLocaleString('zh-CN');

@@ -1,0 +1,146 @@
+.pixel-date-field {
+  position: relative;
+  min-width: 0;
+}
+.pixel-theme .pixel-date-field input[type=date] {
+  box-sizing: border-box;
+  width: 100%;
+  padding-inline-end: 27px;
+}
+.pixel-theme .pixel-date-field input[type=date]::-webkit-calendar-picker-indicator {
+  display: none;
+}
+.pixel-theme .pixel-date-trigger {
+  position: absolute;
+  inset-inline-end: 1px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--theme-ink, #304a34);
+  cursor: pointer;
+}
+.pixel-date-trigger::before {
+  content: "";
+  box-sizing: border-box;
+  width: 14px;
+  height: 13px;
+  border: 2px solid currentColor;
+  box-shadow: inset 0 2px currentColor;
+  background: linear-gradient(currentColor, currentColor) 2px 5px / 2px 2px no-repeat,
+              linear-gradient(currentColor, currentColor) 6px 5px / 2px 2px no-repeat;
+}
+.pixel-theme .pixel-date-trigger:is(:hover, [aria-expanded=true]):enabled {
+  background: var(--theme-well, #f0efd3);
+  border-color: var(--theme-border, #809367);
+}
+.pixel-date-trigger:disabled {
+  opacity: .5;
+  cursor: default;
+}
+#pixel-calendar {
+  position: fixed;
+  z-index: 30;
+  box-sizing: border-box;
+  width: min(306px, calc(100vw - 24px));
+  padding: 10px;
+  overflow: auto;
+  border: 2px solid var(--theme-ink, #304a34);
+  background: var(--theme-card, #faf6de);
+  color: var(--theme-ink, #304a34);
+  box-shadow: 4px 4px 0 var(--theme-shadow, #a8b589);
+  font-variant-numeric: tabular-nums;
+}
+#pixel-calendar .calendar-navigation {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) minmax(0, 1fr) 30px;
+  gap: 6px;
+  margin-bottom: 7px;
+}
+#pixel-calendar :is(button, select) {
+  box-sizing: border-box;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+  font-family: inherit;
+  cursor: pointer;
+}
+#pixel-calendar :is(.calendar-navigation, .calendar-footer) :is(button, select) {
+  min-height: 32px;
+  border-color: var(--theme-border, #778b60);
+  background: var(--theme-well, #f0efd3);
+  box-shadow: 2px 2px 0 var(--theme-shadow, #a8b589);
+}
+#pixel-calendar select {
+  padding-inline: 5px;
+}
+#pixel-calendar .calendar-navigation button {
+  line-height: 1;
+  font-weight: 700;
+}
+#pixel-calendar .calendar-weekdays,
+#pixel-calendar .calendar-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  text-align: center;
+}
+#pixel-calendar .calendar-weekdays {
+  margin-bottom: 4px;
+  color: var(--theme-muted, #586846);
+  font-size: 13px;
+}
+#pixel-calendar .calendar-days button {
+  min-height: 28px;
+  line-height: 1.2;
+}
+#pixel-calendar .calendar-days button[aria-current=date] {
+  border-color: var(--theme-accent, #5c7742);
+}
+#pixel-calendar .calendar-days button[aria-pressed=true]:enabled {
+  background: var(--theme-primary, #365b3c);
+  color: var(--theme-on-primary, #fffbe6);
+  box-shadow: 2px 2px 0 var(--theme-shadow, #a8b589);
+}
+#pixel-calendar button:hover:enabled {
+  border-color: var(--theme-ink, #304a34);
+}
+#pixel-calendar :is(button, select):disabled {
+  opacity: .4;
+  cursor: default;
+}
+#pixel-calendar .outside-month:disabled {
+  opacity: .26;
+}
+#pixel-calendar :is(button, select):focus-visible,
+.pixel-theme .pixel-date-trigger:focus-visible {
+  outline: 2px dashed var(--theme-ink, #304a34);
+  outline-offset: -3px;
+}
+#pixel-calendar .calendar-footer {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--theme-border, #778b60);
+}
+#pixel-calendar .calendar-footer button {
+  padding-inline: 12px;
+}
+#pixel-calendar .calendar-heading {
+  position: absolute;
+  clip-path: inset(50%);
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}

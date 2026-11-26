@@ -1,5 +1,5 @@
 import {portfolioStore as store,accountReady} from './cloud-store.mjs';
-import {t} from './i18n.mjs?v=auth-unified-v1';
+import {t} from './i18n.mjs?v=chart-currency-v1';
 
 const el=(tag,attrs={},text)=>{const node=document.createElement(tag);for(const [k,v]of Object.entries(attrs))node.setAttribute(k,v);if(text)node.textContent=text;return node;};
 const header=document.querySelector('.site-header');
