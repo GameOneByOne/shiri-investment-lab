@@ -1,4 +1,4 @@
-import {getLanguage} from './i18n.mjs?v=auth-unified-v1';
+import {getLanguage} from './i18n.mjs?v=chart-currency-v1';
 const themes=[['ink','暖白墨蓝','Ivory & Ink'],['blue','冷白深蓝','White & Blue'],['night','深色琥珀','Dark Amber'],['green','经典绿色','Classic Green']];
 const key='shiri.ui.theme';
 let selected='ink';

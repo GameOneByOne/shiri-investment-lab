@@ -5,7 +5,7 @@ export function validateRates(rows,currency){
   if(!Array.isArray(rows)||!rows.length)throw new Error('历史汇率暂无可用数据。');
   const seen=new Set();
   for(const row of rows){
-    if(row.base!==currency||row.quote!=='CNY'||!datePattern.test(row.date)||!Number.isFinite(row.rate)||row.rate<=0||seen.has(row.date))throw new Error('历史汇率数据异常，无法完成人民币折算。');
+    if(row.base!==currency||row.quote!=='CNY'||!datePattern.test(row.date)||!Number.isFinite(row.rate)||row.rate<=0||seen.has(row.date))throw new Error('历史汇率数据异常，无法完成币种折算。');
     seen.add(row.date);
   }
   return [...rows].sort((a,b)=>a.date.localeCompare(b.date));
@@ -42,23 +42,36 @@ export function createFxApi(fetcher=globalThis.fetch){
 }
 
 export function convertPlanToCny(plan,rates){
+  return convertPlanCurrency(plan,'cn',rates);
+}
+
+export function convertPlanCurrency(plan,target,sourceRates=[],targetRates=[]){
   const {options,result}=plan;
-  if(options.market==='cn')return {...plan,nativeResult:result};
-  const checked=validateRates(rates,currencies[options.market]);
-  const dates=[...new Set([options.start,options.end,...result.series.map(d=>d.date),...checked.filter(r=>r.date>=options.start&&r.date<=options.end).map(r=>r.date)])].sort();
+  if(options.market===target)return {...plan,nativeResult:result};
+  const source=options.market==='cn'?[]:validateRates(sourceRates,currencies[options.market]);
+  const destination=target==='cn'?[]:validateRates(targetRates,currencies[target]);
+  const fxDates=[...source,...destination].filter(r=>r.date>=options.start&&r.date<=options.end).map(r=>r.date);
+  const dates=[...new Set([options.start,options.end,...result.series.map(d=>d.date),...fxDates])].sort();
   let cursor=-1,contributed=0,priorNative=0;
   const series=dates.map(date=>{
     while(cursor+1<result.series.length&&result.series[cursor+1].date<=date)cursor++;
     const native=cursor<0?{contributed:0,assets:0,profit:0,rate:0}:result.series[cursor];
-    const fx=native.contributed||native.assets?rateOn(checked,date):null;
-    const rate=fx?.rate||1;
+    const hasValue=native.contributed||native.assets||native.benchmarkAssets;
+    const from=hasValue&&source.length?rateOn(source,date):null;
+    const to=hasValue&&destination.length?rateOn(destination,date):null;
+    const rate=(from?.rate??1)/(to?.rate??1);
+    const fxDate=from&&to?(from.date<to.date?from.date:to.date):(from??to)?.date;
     // Historical cost is a sum of converted deposits, never today's FX * total deposits.
     contributed+=(native.contributed-priorNative)*rate;priorNative=native.contributed;
     const assets=native.assets*rate,profit=assets-contributed;
+    const benchmarkAssets=native.benchmarkAssets==null?null:native.benchmarkAssets*rate;
+    const benchmarkProfit=benchmarkAssets==null?null:benchmarkAssets-contributed;
     return {...native,date,contributed,assets,profit,rate:contributed?profit/contributed:0,
+      cash:(native.cash||0)*rate,benchmarkAssets,benchmarkProfit,
+      benchmarkRate:benchmarkProfit==null?null:contributed?benchmarkProfit/contributed:0,
       purchases:native.date===date?native.purchases:0,
       events:native.date===date?(native.events||[]).map(e=>({...e,nativeCashAmount:e.cashAmount,cashAmount:(e.cashAmount||0)*rate})):[],
-      fxRate:fx?.rate??null,fxDate:fx?.date??null,native};
+      fxRate:fxDate?rate:null,fxDate:fxDate??null,native};
   });
-  return {...plan,nativeResult:result,fx:checked,result:{...result,series,last:series.at(-1),lastDate:series.at(-1).date}};
+  return {...plan,nativeResult:result,fx:source,result:{...result,series,last:series.at(-1),lastDate:series.at(-1).date}};
 }

@@ -1,14 +1,70 @@
 /* Shared readable control type: former 12px controls become 15px. */
 .pixel-theme :is(button:not(.remove-plan):not(.dialog-close):not(.account-close),input[type=text],input[type=email],input[type=number],input[type=date],select,textarea,label),
-.pixel-theme :is(.main-nav a,.date-cell,.plan-number,.plan-amount>span,.suffix-input>span,.local-badge,.release-badge,.release-badge>span,.forecast-stats span,.progress-stats span,.metric-label,.stats-grid>div>span,.projection-chart-label,.projection-legend,.projection-range-control,.pixel-kicker,#run-label,.feedback-types span){font-size:15px!important}
+.pixel-theme :is(.main-nav a,.date-cell,.plan-number,.plan-amount>span,.suffix-input>span,.local-badge,.forecast-stats span,.progress-stats span,.metric-label,.stats-grid>div>span,.projection-chart-label,.projection-legend,.projection-range-control,.pixel-kicker,#run-label,.feedback-types span){font-size:15px!important}
 .pixel-theme :is(input[type=text],input[type=email],input[type=number],input[type=date],select){line-height:1.5!important}
-.pixel-theme :is(.plan-row select,.plan-amount,.plan-editor input,.plan-editor select,.actual-form input,.projection-range-control select){height:48px!important}
+.pixel-theme :is(.plan-row select,.plan-row .date-cell input,.plan-amount,.plan-editor input,.plan-editor select,.actual-form input,.projection-range-control select){height:48px!important}
+.pixel-theme .site-header .release-badge {
+  font-size: 11px;
+  line-height: 1.25;
+  padding: 2px 4px;
+  flex-shrink: 0;
+}
 .pixel-theme .plan-row select option{font-size:15px!important}
 @supports(appearance:base-select){.pixel-theme .plan-row select::picker(select){font-size:15px!important}}
 .pixel-theme :is(.run-button,.add-plan){min-height:48px;line-height:1.75!important}
 .pixel-theme :is(.plan-editor .run-button,.actual-form .run-button){height:auto;min-height:48px}
 .pixel-theme .plan-row{grid-template-columns:72px 158px 15px 158px minmax(190px,1.1fr) minmax(135px,.8fr) 90px minmax(220px,1.5fr) 28px;min-width:1260px}
-.pixel-theme .date-cell input{min-height:32px}
+/* Keep the date captions above the row of aligned plan controls. */
+.pixel-theme .plan-row {
+  padding-block-start: 30px;
+}
+.pixel-theme .plan-row .date-cell {
+  position: relative;
+}
+.pixel-theme .plan-row .date-cell > label {
+  position: absolute;
+  inset-inline-start: 0;
+  inset-block-end: calc(100% + 4px);
+  line-height: 1.25;
+  white-space: nowrap;
+}
+.pixel-theme .plan-row .date-cell input {
+  padding-block: 0;
+  border-top: 2px solid transparent;
+}
+.pixel-theme .plan-row .date-cell input::-webkit-date-and-time-value {
+  margin: 0;
+  text-align: start;
+}
+.pixel-theme .plan-row select {
+  padding-block: 0;
+  align-items: center;
+}
+.pixel-theme .chart-toolbar {
+  flex-wrap: wrap;
+}
+.pixel-theme .chart-display-controls,
+.pixel-theme .chart-currency {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.pixel-theme .chart-display-controls {
+  flex-wrap: wrap;
+  margin-inline-start: auto;
+}
+.pixel-theme .chart-currency select {
+  min-height: 36px;
+  padding: 0 6px;
+  border: 2px solid var(--theme-border, #7d9061);
+  border-radius: 0;
+  background: var(--theme-well, #ecefc9);
+  color: var(--theme-ink, #304a34);
+  box-shadow: 2px 2px 0 var(--theme-shadow, #c4caa4);
+}
+.pixel-theme .chart-currency-status {
+  text-align: end;
+}
 .pixel-theme .suffix-input>span{top:12px}
 .pixel-theme .language-switcher button{min-width:40px;padding:1px 8px;line-height:1.75}
 .pixel-theme .site-header .language-switcher{right:max(88px,calc((100% - 1360px)/2 + 56px))}

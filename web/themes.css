@@ -22,7 +22,19 @@ html[data-theme]:not([data-theme=green]) .pixel-theme .chart-state :is(strong,p)
 html[data-theme]:not([data-theme=green]) .pixel-theme svg text{fill:var(--theme-muted)!important}
 html[data-theme]:not([data-theme=green]) .pixel-theme .projection-chart-wrap{background-color:var(--theme-card);background-image:none;border-color:var(--theme-border);box-shadow:inset 2px 2px 0 var(--theme-shadow)}
 html[data-theme]:not([data-theme=green]) .pixel-theme .site-header .main-nav a{color:var(--theme-muted)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .site-header .main-nav a:hover{
+  background:var(--theme-well);
+  border-color:var(--theme-border);
+  color:var(--theme-ink);
+}
 html[data-theme]:not([data-theme=green]) .pixel-theme .site-header .main-nav a[aria-current=page]{background:var(--theme-primary);color:var(--theme-on-primary)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .site-header .main-nav a:active{
+  background:var(--theme-primary);
+  border-color:var(--theme-ink);
+  color:var(--theme-on-primary);
+  box-shadow:1px 1px 0 var(--theme-shadow);
+  transform:translate(1px,1px);
+}
 html[data-theme]:not([data-theme=green]) .pixel-theme .projection-title>span{color:var(--theme-muted)}
 html[data-theme]:not([data-theme=green]) .pixel-theme .projection-legend i{border-color:var(--theme-primary)}
 html[data-theme]:not([data-theme=green]) .pixel-theme .projection-legend i.actual-line{border-color:var(--theme-accent)}
@@ -48,3 +60,82 @@ html[lang=en][data-theme=night] .pixel-theme .record-table td.gap-negative{color
 }
 @media(max-width:760px){.pixel-theme .display-settings{right:76px;gap:8px}.pixel-theme .theme-picker{gap:4px}.pixel-theme .theme-picker select{max-width:152px}.pixel-theme .site-header .about-button{left:20px;right:auto;bottom:62px}.pixel-theme .site-header{min-height:190px}}
 @media(max-width:480px){.pixel-theme .theme-picker>span{display:none}.pixel-theme .theme-picker select{max-width:130px}.pixel-theme .display-settings{gap:8px}.pixel-theme .theme-picker select{font-size:12px!important}}
+
+/* Home controls and results share the current palette, including open menus. */
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-number{
+  background:var(--theme-well);
+  border-color:var(--theme-border);
+  color:var(--theme-ink);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-row select{
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),
+    linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:right 13px center,right 8px center;
+  background-size:5px 5px;
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-row option{
+  background:var(--theme-card);
+  color:var(--theme-ink);
+}
+@supports(appearance:base-select){
+  html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-row select::picker(select){
+    scrollbar-color:var(--theme-border) var(--theme-well);
+  }
+  html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-row option:checked{
+    background:var(--theme-well);
+  }
+  html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-row option:is(:hover,:focus-visible){
+    background:var(--theme-primary);
+    color:var(--theme-on-primary);
+  }
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .date-cell input{
+  color-scheme:inherit;
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .plan-amount input{
+  background:none;
+  box-shadow:none;
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace input::placeholder,
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace :is(.plan-date-arrow,.plan-amount>span:last-child,.icon-button,.hero-value>span,.period-stamp span:first-child,.legend,.benchmark-description,.compare-icon,.method-details summary,.method-details p,.chart-tooltip>strong){
+  color:var(--theme-muted);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme #investment-form>.run-button{
+  background:var(--theme-primary);
+  border-color:var(--theme-ink);
+  color:var(--theme-on-primary);
+  box-shadow:3px 3px 0 var(--theme-shadow);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .run-arrow{color:inherit}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace :is(.add-plan:hover,.remove-plan:hover,.granularity-tabs){
+  background:var(--theme-well);
+  border-color:var(--theme-border);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace :is(.plan-toggles input,.switch){
+  background:var(--theme-card);
+  border-color:var(--theme-border);
+  box-shadow:2px 2px 0 var(--theme-shadow);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace :is(.plan-toggles input,.switch):checked{
+  background:var(--theme-primary);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace :is(.plan-toggles input,.switch):checked::after{
+  inset:1px 3px 3px;
+  background:none;
+  border:solid var(--theme-on-primary);
+  border-width:0 2px 2px 0;
+  transform:rotate(45deg);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .chart-container{
+  background:var(--theme-card);
+  border-color:var(--theme-border);
+  box-shadow:inset 2px 2px 0 var(--theme-shadow);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace :is(.benchmark-row,.chart-tooltip>strong,.tooltip-event,.info-dot){
+  border-color:var(--theme-border);
+}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .chart-tooltip{box-shadow:4px 4px 0 var(--theme-shadow)}
+html[data-theme]:not([data-theme=green]) .pixel-theme .workspace .loader{
+  border-color:var(--theme-border);
+  border-top-color:var(--theme-primary);
+}
