@@ -40,6 +40,19 @@ function fillPlan(){for(const [id,key] of Object.entries({'p-start':'start','p-y
 fillPlan();$('#a-date').value=today;
 for(const input of document.querySelectorAll('#p-start,#a-date'))enhanceDateInput(input);
 $('#projection-form').addEventListener('submit',e=>{e.preventDefault();try{const candidate={start:$('#p-start').value,years:Number($('#p-years').value),initial:Number($('#p-initial').value),amount:Number($('#p-amount').value),frequency:$('#p-frequency').value,rate:Number($('#p-rate').value),rateUnit:$('#p-rate-unit').value};project(candidate,records,today);plan=candidate;save();render();$('#plan-error').textContent='';}catch(error){$('#plan-error').textContent=error.message;}});
+const recordDate=$('#a-date'),recordError=$('#record-error');
+recordDate.addEventListener('invalid',event=>{
+  if(!recordDate.validity.rangeUnderflow)return;
+  event.preventDefault();
+  recordDate.setAttribute('aria-invalid','true');
+  recordError.textContent='日期要大于计划开始日期。';
+  recordDate.focus();
+});
+recordDate.addEventListener('input',()=>{
+  if(recordDate.getAttribute('aria-invalid')!=='true')return;
+  recordDate.removeAttribute('aria-invalid');
+  recordError.textContent='';
+});
 $('#actual-form').addEventListener('submit',e=>{e.preventDefault();try{const value=$('#a-value').value;if(!value.trim())throw Error('请填写实际数据。');const record={date:$('#a-date').value,mode:'assets',value:Number(value)};const candidate=[...records.filter(r=>r.date!==record.date),record].sort((a,b)=>a.date.localeCompare(b.date));project(plan,candidate,today);records=candidate;save();render();$('#record-error').textContent='';$('#a-value').value='';}catch(error){$('#record-error').textContent=error.message;}});
 function displayGap(element,value){
   const rounded=Math.round(value*100)/100;

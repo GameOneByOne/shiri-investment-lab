@@ -1,0 +1,80 @@
+.pixel-theme .plan-row .stock-search-trigger {
+  grid-area: auto;
+  position: relative;
+  min-width: 0;
+  width: 100%;
+  height: 48px;
+  padding: 0 26px 0 8px;
+  border: 2px solid var(--theme-border, #6f8158);
+  border-radius: 0;
+  background: var(--theme-well, #fffce7);
+  box-shadow: 2px 2px 0 var(--theme-shadow, #c4caa4);
+  color: var(--theme-ink, #304a34);
+  font-family: inherit;
+  text-align: start;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+.stock-search-trigger::after {
+  content: "";
+  position: absolute;
+  inset-inline-end: 8px;
+  top: calc(50% - 2px);
+  border: 5px solid transparent;
+  border-top-color: currentColor;
+}
+#stock-search-popup {
+  position: fixed;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  border: 2px solid var(--theme-ink, #59764a);
+  background: var(--theme-card, #fffbe2);
+  color: var(--theme-ink, #304a34);
+  box-shadow: 4px 4px 0 var(--theme-shadow, #96a87a);
+}
+#stock-search-popup input {
+  flex: 0 0 40px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 8px;
+  border: 2px solid var(--theme-border, #6f8158);
+  border-radius: 0;
+  background: var(--theme-well, #fffce7);
+  color: inherit;
+  font: inherit;
+  font-size: 16px;
+}
+#stock-search-popup input:focus-visible {
+  outline: 2px solid var(--theme-primary, #527348);
+  outline-offset: 0;
+}
+#stock-search-results {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+#stock-search-results [role=option] {
+  padding: 7px 8px;
+  border-bottom: 1px dotted var(--theme-border, #a4b284);
+  cursor: pointer;
+  overflow-wrap: anywhere;
+}
+#stock-search-results [aria-selected=true] {
+  background: var(--theme-well, #e1e8ad);
+}
+#stock-search-results [role=option]:hover,
+#stock-search-results .stock-search-active {
+  background: var(--theme-primary, #3d5d3e);
+  color: var(--theme-on-primary, #fff8d8);
+}
+.stock-search-empty {
+  margin: 0;
+  padding: 7px 8px;
+}
+@media (max-width: 900px) {
+  .pixel-theme .plan-row .stock-search-trigger { grid-area: stock; }
+}
