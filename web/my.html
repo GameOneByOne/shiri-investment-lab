@@ -63,13 +63,13 @@
       </section>
     </div>
     <section class="planner-card actual-section" aria-labelledby="actual-title"><div class="pixel-kicker" aria-hidden="true"><span>03 / 实际记录</span></div><div class="record-heading"><div><h2 id="actual-title">记录真实的每一步</h2></div></div>
-      <form id="actual-form" class="actual-form"><div><label for="a-date">记录日期</label><input id="a-date" type="date" required></div><div><label for="a-value" id="actual-value-label">账户资产总值（元）</label><input id="a-value" type="number" min="0" max="1000000000000000" step="any" required></div><button class="run-button" type="submit">保存记录 <span>＋</span></button></form>
+      <form id="actual-form" class="actual-form"><div><label for="a-date">记录日期</label><input id="a-date" type="date" aria-describedby="record-error" required></div><div><label for="a-value" id="actual-value-label">账户资产总值（元）</label><input id="a-value" type="number" min="0" max="1000000000000000" step="any" required></div><button class="run-button" type="submit">保存记录 <span>＋</span></button></form>
       <p id="record-error" class="planner-error" role="alert"></p>
       <div class="record-table-wrap"><table class="record-table"><thead><tr><th>记录日期</th><th>实际资产</th><th>实际收益</th><th>与同期预期差额</th><th><span class="sr-only">操作</span></th></tr></thead><tbody id="records-body"></tbody></table></div><p id="records-empty" class="records-empty">还没有实际记录。保存计划后，即可从计划开始日记录账户资产。</p>
     </section>
     <details class="projection-method"><summary>计算方式与数据保存</summary><p>预期收益率按有效周期收益率换算为日复利：每日为 1 天，每月为 365/12 天，每年为 365 天。开始日计入初始资产与首笔投入，后续先计算当天收益，再于日末投入；每日投入包含周末，月/年投入沿用开始日的日号。</p><p>实际记录直接使用你录入的账户资产总值；已有的历史收益率记录仍按原计算口径展示。实际曲线只连接已记录点，连线不代表未记录日的真实估值。收益＝资产－初始资产－计划累计追加投入；如果实际投入与计划不同，请先调整计划再比较。</p><p>修改计划会重新计算所有对比结果，已保存的实际记录会保留；不兼容的日期会提示，需先修改或删除相关记录。未登录时，计划和记录保存在当前浏览器；登录后可开启跨设备云同步。这里展示的是假设推算。</p></details>
   </main>
-  <script type="module" src="/my.mjs?v=chart-currency-v1"></script>
+  <script type="module" src="/my.mjs?v=record-date-message-v1"></script>
   <script type="module" src="/feedback.mjs?v=chart-currency-v1"></script>
 </body>
 </html>

@@ -8,6 +8,8 @@ import {createDataApi} from './data.mjs';
 import {firstHistoryDate,currentMarketDate,validateDateRange} from './dates.mjs';
 import {enhanceDateInput} from './pixel-date.mjs?v=1';
 
+import {enhanceStockSelect} from './stock-search.mjs?v=1';
+
 const api=createDataApi(config),$=s=>document.querySelector(s);
 const money=new Intl.NumberFormat('zh-CN',{maximumFractionDigits:2,minimumFractionDigits:2});
 const markets={cn:{name:'A股',unit:'元',sign:'¥',code:'CNY',currency:'人民币'},hk:{name:'港股',unit:'港币',sign:'HK$',code:'HKD',currency:'港币'},us:{name:'美股',unit:'美元',sign:'US$',code:'USD',currency:'美元'}};
@@ -69,6 +71,7 @@ function addPlan(){
  field(row,'market').addEventListener('change',()=>{row.querySelector('[data-unit]').textContent=markets[field(row,'market').value].unit;stockOptions(plan);});
  field(row,'stock').addEventListener('change',()=>{plan.selected=plan.stocks?.find(s=>s.symbol===field(row,'stock').value)||null;});
  row.querySelector('.remove-plan').addEventListener('click',()=>{plan.version++;state.plans=state.plans.filter(p=>p!==plan);state.results=state.results.filter(p=>p.id!==id);state.valuations.delete(id);row.remove();if(!state.plans.length)addPlan();renderToggles();renderResult();});
+ enhanceStockSelect(field(row,'stock'));
  stockOptions(plan);return plan;
 }
 $('#add-plan').addEventListener('click',()=>{const p=addPlan();field(p.row,'amount').focus();});
