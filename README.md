@@ -3,10 +3,10 @@
 **一个关于时间与投资的小实验。**
 
 [![版本](https://img.shields.io/github/package-json/v/GameOneByOne/shiri-investment-lab?style=flat-square&label=%E7%89%88%E6%9C%AC&color=356849)](https://github.com/GameOneByOne/shiri-investment-lab)
-[![内测中](https://img.shields.io/badge/%E7%8A%B6%E6%80%81-%E5%86%85%E6%B5%8B%E4%B8%AD-9cb47b?style=flat-square)](https://shiriinvestment.top)
-[![构建状态](https://img.shields.io/github/actions/workflow/status/GameOneByOne/shiri-investment-lab/check.yml?branch=main&style=flat-square&label=%E6%9E%84%E5%BB%BA)](https://github.com/GameOneByOne/shiri-investment-lab/actions/workflows/check.yml)
-[![GitHub Stars](https://img.shields.io/github/stars/GameOneByOne/shiri-investment-lab?style=flat-square&color=b68d62)](https://github.com/GameOneByOne/shiri-investment-lab/stargazers)
-[![贡献者](https://img.shields.io/github/contributors/GameOneByOne/shiri-investment-lab?style=flat-square&label=%E8%B4%A1%E7%8C%AE%E8%80%85&color=66864e)](https://github.com/GameOneByOne/shiri-investment-lab/graphs/contributors)
+[![内测中](docs/badges/beta.svg)](https://shiriinvestment.top)
+[![构建状态](https://github.com/GameOneByOne/shiri-investment-lab/actions/workflows/check.yml/badge.svg?branch=main)](https://github.com/GameOneByOne/shiri-investment-lab/actions/workflows/check.yml)
+[![GitHub Stars](docs/badges/stars.svg)](https://github.com/GameOneByOne/shiri-investment-lab/stargazers)
+[![贡献者](docs/badges/contributors.svg)](https://github.com/GameOneByOne/shiri-investment-lab/graphs/contributors)
 
 🌐 **[在线体验](https://shiriinvestment.top)** · 🐛 **[反馈问题](https://github.com/GameOneByOne/shiri-investment-lab/issues)** · 💡 **[提出建议](https://github.com/GameOneByOne/shiri-investment-lab/issues/new)**
 
